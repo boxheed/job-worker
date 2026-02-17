@@ -25,7 +25,7 @@ The worker expects a shared volume to be mounted at a consistent path. In your d
 
 ```yaml
 services:
-  job-worker:
+  mqtt-fs-worker:
     image: node:20-slim
     restart: always
     volumes:
@@ -78,7 +78,7 @@ The worker can be configured via environment variables or command-line arguments
 
 ### Example usage:
 ```bash
-job-worker --url mqtt://broker:1883 --id worker-01 --topic custom/jobs
+mqtt-fs-worker --url mqtt://broker:1883 --id worker-01 --topic custom/jobs
 ```
 
 ## License

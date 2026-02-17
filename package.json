@@ -5,10 +5,11 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "job-worker": "./bin/worker.js"
+    "mqtt-fs-worker": "./bin/worker.js"
   },
   "files": [
-    "src"
+    "src",
+    "bin"
   ],
   "scripts": {
     "test": "vitest run",
