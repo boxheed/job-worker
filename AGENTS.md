@@ -19,6 +19,13 @@ This repository is a Node.js CLI tool written in JavaScript.
 - Use ES Modules (ESM).
 - All new features should have corresponding unit tests in the `tests/` directory.
 - Imports in `.js` files should use `.js` extensions.
+- Core logic should be placed in `src/lib/`.
+
+## Executor Logic
+
+- The `executeJob(workDir, id)` function in `src/lib/executor.js` is the core engine.
+- It expects a `job.json` in the `workDir`.
+- It redirects all output to `job.log` in the `workDir`.
 
 ## CLI Execution
 
