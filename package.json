@@ -5,7 +5,7 @@
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "job-worker": "./src/index.js"
+    "job-worker": "./bin/worker.js"
   },
   "files": [
     "src"
@@ -13,7 +13,7 @@
   "scripts": {
     "test": "vitest run",
     "dev": "vitest",
-    "start": "node src/index.js",
+    "start": "node bin/worker.js",
     "lint": "eslint 'src/**/*.js' 'tests/**/*.js'",
     "format": "prettier --write 'src/**/*.js' 'tests/**/*.js'"
   },
@@ -32,5 +32,8 @@
     "globals": "^16.0.0",
     "prettier": "^3.8.1",
     "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "mqtt": "^5.15.0"
   }
 }

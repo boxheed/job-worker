@@ -69,7 +69,7 @@ The workDir must be a path relative to the container's mount point or an absolut
 ### Test
 
   * `MQTT_URL`: The broker address (default: mqtt://localhost:1883)
-  * `WORKER_ID`: A unique identifier for this worker (default: node-worker-01).
+  * `WORKER_ID`: A unique identifier for this worker, used as the MQTT Client ID (default: node-worker-01).
 
 ## License
 
