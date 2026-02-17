@@ -75,6 +75,29 @@ The worker can be configured via environment variables or command-line arguments
 | `-u, --url` | `MQTT_URL` | `mqtt://localhost:1883` | MQTT Broker URL |
 | `-i, --id` | `WORKER_ID` | `worker-01` | Unique Worker ID (Client ID) |
 | `-t, --topic` | - | `jobs/pending` | Subscription topic |
+| `--dry-run` | - | - | Run in dry-run mode using local `test-payload.json` |
+
+### Dry Run Mode
+
+The Dry Run mode allows you to test the shell environment and file system permissions without an MQTT broker.
+When the `--dry-run` flag is used, the worker looks for a `test-payload.json` file in the current directory.
+
+`test-payload.json` example:
+```json
+{
+  "id": "dry-run-test",
+  "workDir": "./test-workdir",
+  "steps": [
+    "echo 'Testing environment'",
+    "ls -la"
+  ]
+}
+```
+
+Running dry run:
+```bash
+mqtt-fs-worker --dry-run
+```
 
 ### Example usage:
 ```bash
