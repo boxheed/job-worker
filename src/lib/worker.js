@@ -98,3 +98,20 @@ export function startWorker(argv = process.argv) {
 
   return client;
 }
+
+/**
+ * Sets up signal handlers for graceful shutdown.
+ * @param {import('mqtt').MqttClient} client - The MQTT client instance.
+ */
+export function setupSignalHandlers(client) {
+  const handleSignal = (signal) => {
+    console.log(`Received ${signal}. Shutting down...`);
+    client.end(false, () => {
+      console.log('MQTT client disconnected. Exiting.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', () => handleSignal('SIGINT'));
+  process.on('SIGTERM', () => handleSignal('SIGTERM'));
+}
