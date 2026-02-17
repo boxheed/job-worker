@@ -66,10 +66,20 @@ The workDir must be a path relative to the container's mount point or an absolut
 }
 ```
 
-### Test
+## Configuration
 
-  * `MQTT_URL`: The broker address (default: mqtt://localhost:1883)
-  * `WORKER_ID`: A unique identifier for this worker, used as the MQTT Client ID (default: node-worker-01).
+The worker can be configured via environment variables or command-line arguments.
+
+| Argument | Environment Variable | Default | Description |
+| --- | --- | --- | --- |
+| `-u, --url` | `MQTT_URL` | `mqtt://localhost:1883` | MQTT Broker URL |
+| `-i, --id` | `WORKER_ID` | `worker-01` | Unique Worker ID (Client ID) |
+| `-t, --topic` | - | `jobs/pending` | Subscription topic |
+
+### Example usage:
+```bash
+job-worker --url mqtt://broker:1883 --id worker-01 --topic custom/jobs
+```
 
 ## License
 

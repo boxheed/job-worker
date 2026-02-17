@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import mqtt from 'mqtt';
 import { executeJob } from '../src/lib/executor.js';
-import path from 'node:path';
+import { startWorker } from '../src/lib/worker.js';
 
 vi.mock('mqtt');
 vi.mock('../src/lib/executor.js');
@@ -27,32 +27,76 @@ describe('Worker', () => {
     };
     vi.mocked(mqtt.connect).mockReturnValue(mockClient);
     vi.spyOn(process, 'exit').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
-    vi.resetModules();
   });
 
-  it('should connect, subscribe, handle message, and exit', async () => {
-    vi.mocked(executeJob).mockReturnValue({ status: 'success', exitCode: 0 });
-
-    // Import worker
-    await import('../bin/worker.js');
+  it('should use environment variables as defaults', () => {
+    startWorker(['node', 'worker.js']);
 
     expect(mqtt.connect).toHaveBeenCalledWith('mqtt://test-broker:1883', {
       clientId: 'test-worker',
       clean: false,
     });
 
-    // Simulate connect
-    const connectHandler = mockClient.on.mock.calls.find((c) => c[0] === 'connect')[1];
+    const connectHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'connect',
+    )[1];
     connectHandler();
-    expect(mockClient.subscribe).toHaveBeenCalledWith('jobs/pending', { qos: 1 }, expect.any(Function));
+    expect(mockClient.subscribe).toHaveBeenCalledWith(
+      'jobs/pending',
+      { qos: 1 },
+      expect.any(Function),
+    );
+  });
+
+  it('should override defaults with CLI arguments', () => {
+    startWorker([
+      'node',
+      'worker.js',
+      '-u',
+      'mqtt://cli-broker:1883',
+      '-i',
+      'cli-worker',
+      '-t',
+      'cli/topic',
+    ]);
+
+    expect(mqtt.connect).toHaveBeenCalledWith('mqtt://cli-broker:1883', {
+      clientId: 'cli-worker',
+      clean: false,
+    });
+
+    const connectHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'connect',
+    )[1];
+    connectHandler();
+    expect(mockClient.subscribe).toHaveBeenCalledWith(
+      'cli/topic',
+      { qos: 1 },
+      expect.any(Function),
+    );
+  });
+
+  it('should handle message, execute job, and exit', () => {
+    vi.mocked(executeJob).mockReturnValue({ status: 'success', exitCode: 0 });
+    startWorker(['node', 'worker.js']);
+
+    // Simulate connect
+    const connectHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'connect',
+    )[1];
+    connectHandler();
 
     // Simulate message
-    const messageHandler = mockClient.on.mock.calls.find((c) => c[0] === 'message')[1];
+    const messageHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'message',
+    )[1];
     const payload = { id: 'job-123', workDir: '/jobs/job-123' };
     messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload)));
 
@@ -61,21 +105,21 @@ describe('Worker', () => {
       'jobs/results/job-123',
       expect.stringContaining('"status":"success"'),
       { qos: 1 },
-      expect.any(Function)
+      expect.any(Function),
     );
 
     expect(mockClient.end).toHaveBeenCalled();
     expect(process.exit).toHaveBeenCalledWith(0);
   });
 
-  it('should handle a failed job', async () => {
+  it('should handle failed job execution', () => {
     vi.mocked(executeJob).mockReturnValue({ status: 'failed', exitCode: 1 });
-
-    // Import worker
-    await import('../bin/worker.js');
+    startWorker(['node', 'worker.js']);
 
     // Simulate message
-    const messageHandler = mockClient.on.mock.calls.find((c) => c[0] === 'message')[1];
+    const messageHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'message',
+    )[1];
     const payload = { id: 'job-failed', workDir: '/jobs/job-failed' };
     messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload)));
 
@@ -84,7 +128,7 @@ describe('Worker', () => {
       'jobs/results/job-failed',
       expect.stringContaining('"status":"failed"'),
       { qos: 1 },
-      expect.any(Function)
+      expect.any(Function),
     );
 
     expect(mockClient.end).toHaveBeenCalled();
