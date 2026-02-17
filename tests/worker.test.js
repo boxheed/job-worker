@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import mqtt from 'mqtt';
 import { executeJob } from '../src/lib/executor.js';
-import { startWorker } from '../src/lib/worker.js';
+import { startWorker, setupSignalHandlers } from '../src/lib/worker.js';
 
 vi.mock('mqtt');
 vi.mock('../src/lib/executor.js');
@@ -133,5 +133,51 @@ describe('Worker', () => {
 
     expect(mockClient.end).toHaveBeenCalled();
     expect(process.exit).toHaveBeenCalledWith(0);
+  });
+
+  describe('Signal Handling', () => {
+    it('should register SIGINT and SIGTERM handlers', () => {
+      const processOnSpy = vi.spyOn(process, 'on').mockImplementation(() => {});
+      setupSignalHandlers(mockClient);
+
+      expect(processOnSpy).toHaveBeenCalledWith('SIGINT', expect.any(Function));
+      expect(processOnSpy).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
+    });
+
+    it('should disconnect and exit on SIGINT', () => {
+      const handlers = {};
+      vi.spyOn(process, 'on').mockImplementation((signal, handler) => {
+        handlers[signal] = handler;
+      });
+
+      setupSignalHandlers(mockClient);
+
+      // Simulate SIGINT
+      handlers['SIGINT']();
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Received SIGINT'),
+      );
+      expect(mockClient.end).toHaveBeenCalledWith(false, expect.any(Function));
+      expect(process.exit).toHaveBeenCalledWith(0);
+    });
+
+    it('should disconnect and exit on SIGTERM', () => {
+      const handlers = {};
+      vi.spyOn(process, 'on').mockImplementation((signal, handler) => {
+        handlers[signal] = handler;
+      });
+
+      setupSignalHandlers(mockClient);
+
+      // Simulate SIGTERM
+      handlers['SIGTERM']();
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Received SIGTERM'),
+      );
+      expect(mockClient.end).toHaveBeenCalledWith(false, expect.any(Function));
+      expect(process.exit).toHaveBeenCalledWith(0);
+    });
   });
 });
