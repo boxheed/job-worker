@@ -3,21 +3,19 @@
   "version": "1.0.0",
   "description": "CLI package for job worker",
   "type": "module",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "bin": {
-    "job-worker": "./dist/index.js"
+    "job-worker": "./src/index.js"
   },
   "files": [
-    "dist"
+    "src"
   ],
   "scripts": {
-    "build": "tsc",
     "test": "vitest run",
     "dev": "vitest",
-    "start": "node dist/index.js",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
-    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
-    "prepare": "npm run build"
+    "start": "node src/index.js",
+    "lint": "eslint 'src/**/*.js' 'tests/**/*.js'",
+    "format": "prettier --write 'src/**/*.js' 'tests/**/*.js'"
   },
   "repository": {
     "type": "git",
@@ -28,17 +26,11 @@
   "license": "ISC",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/node": "^25.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.56.0",
-    "@typescript-eslint/parser": "^8.56.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "globals": "^16.0.0",
     "prettier": "^3.8.1",
-    "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.0",
     "vitest": "^2.1.9"
   }
 }
