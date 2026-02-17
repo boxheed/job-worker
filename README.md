@@ -52,6 +52,7 @@ The workDir must be a path relative to the container's mount point or an absolut
 
 2. Execution Behavior
 * Working Directory: The worker automatically cds into the workDir before executing steps.
+* Job Definition: The worker expects a `job.json` file in the `workDir` containing the steps to execute.
 * Logging: A file named job.log is automatically created inside the workDir. All stdout and stderr are redirected here in real-time.
 * Cleanup: The worker does not delete files. It is the responsibility of the Controller to purge the workDir after processing the results.
 
