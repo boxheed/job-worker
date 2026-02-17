@@ -41,12 +41,6 @@ job-worker Jules
 npm install
 ```
 
-### Build
-
-```bash
-npm run build
-```
-
 ### Test
 
 ```bash
