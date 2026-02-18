@@ -1,4 +1,5 @@
 import mqtt from 'mqtt';
+import fs from 'node:fs';
 import path from 'node:path';
 import { Command } from 'commander';
 import { executeJob } from './executor.js';
@@ -23,9 +24,44 @@ export function startWorker(argv = process.argv) {
       process.env.WORKER_ID || 'worker-01',
     )
     .option('-t, --topic <topic>', 'Subscription topic', 'jobs/pending')
+    .option('--dry-run', 'Run in dry-run mode using test-payload.json')
     .parse(argv);
 
   const options = program.opts();
+
+  if (options.dryRun) {
+    console.log('Dry run mode enabled. Reading test-payload.json...');
+    const payloadPath = path.resolve('test-payload.json');
+    if (!fs.existsSync(payloadPath)) {
+      console.error(`Error: ${payloadPath} not found.`);
+      process.exit(1);
+      return;
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+    } catch (err) {
+      console.error('Failed to parse test-payload.json:', err);
+      process.exit(1);
+      return;
+    }
+
+    const { id = 'dry-run', workDir = '.', steps } = payload;
+    console.log(`Executing dry run for job ${id} in ${workDir}`);
+
+    const result = executeJob(workDir, id, steps ? { steps } : null);
+
+    const resultPayload = {
+      id,
+      status: result.status,
+      exitCode: result.exitCode,
+      logFile: path.join(path.resolve(workDir), 'job.log'),
+    };
+
+    console.log(JSON.stringify(resultPayload, null, 2));
+    process.exit(0);
+  }
 
   const MQTT_URL = options.url;
   const WORKER_ID = options.id;

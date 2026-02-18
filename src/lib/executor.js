@@ -6,9 +6,10 @@ import { execSync } from 'node:child_process';
  * Executes a job by reading its definition from workDir and running steps.
  * @param {string} workDir - The directory where the job should be executed.
  * @param {string} id - The unique identifier for the job.
+ * @param {object} [overrideConfig] - Optional job configuration to use instead of job.json.
  * @returns {{status: string, exitCode: number}}
  */
-export function executeJob(workDir, id) {
+export function executeJob(workDir, id, overrideConfig = null) {
   let logFd;
   const originalCwd = process.cwd();
 
@@ -20,17 +21,22 @@ export function executeJob(workDir, id) {
     // 1. Change process directory to workDir
     process.chdir(absoluteWorkDir);
 
-    // 2. Read the job definition JSON from that folder
-    // We assume the file is named 'job.json' as per the architecture.
-    const configPath = path.join(absoluteWorkDir, 'job.json');
-    if (!fs.existsSync(configPath)) {
-      throw new Error(`Job definition not found at ${configPath}`);
+    // 2. Get the job definition
+    let jobConfig;
+    if (overrideConfig) {
+      jobConfig = overrideConfig;
+    } else {
+      // We assume the file is named 'job.json' as per the architecture.
+      const configPath = path.join(absoluteWorkDir, 'job.json');
+      if (!fs.existsSync(configPath)) {
+        throw new Error(`Job definition not found at ${configPath}`);
+      }
+      jobConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     }
-    const jobConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
     // Validate that steps is an array
     if (!Array.isArray(jobConfig.steps)) {
-      throw new Error('job.json must contain a "steps" array');
+      throw new Error('Job configuration must contain a "steps" array');
     }
 
     // 3. Open a write stream to a file named job.log inside that workDir
