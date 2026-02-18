@@ -73,6 +73,8 @@ The worker can be configured via environment variables or command-line arguments
 | Argument | Environment Variable | Default | Description |
 | --- | --- | --- | --- |
 | `-u, --url` | `MQTT_URL` | `mqtt://localhost:1883` | MQTT Broker URL |
+| `-n, --username` | `MQTT_USERNAME` | - | MQTT Username |
+| `-p, --password` | `MQTT_PASSWORD` | - | MQTT Password |
 | `-i, --id` | `WORKER_ID` | `worker-01` | Unique Worker ID (Client ID) |
 | `-t, --topic` | - | `jobs/pending` | Subscription topic |
 | `--dry-run` | - | - | Run in dry-run mode using local `test-payload.json` |

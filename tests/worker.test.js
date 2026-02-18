@@ -12,6 +12,8 @@ describe('Worker', () => {
   beforeEach(() => {
     vi.stubEnv('MQTT_URL', 'mqtt://test-broker:1883');
     vi.stubEnv('WORKER_ID', 'test-worker');
+    vi.stubEnv('MQTT_USERNAME', 'test-user');
+    vi.stubEnv('MQTT_PASSWORD', 'test-pass');
 
     mockClient = {
       on: vi.fn(),
@@ -25,6 +27,7 @@ describe('Worker', () => {
         if (cb) cb();
       }),
     };
+    mqtt.connect.mockClear();
     vi.mocked(mqtt.connect).mockReturnValue(mockClient);
     vi.spyOn(process, 'exit').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -42,6 +45,8 @@ describe('Worker', () => {
     expect(mqtt.connect).toHaveBeenCalledWith('mqtt://test-broker:1883', {
       clientId: 'test-worker',
       clean: false,
+      username: 'test-user',
+      password: 'test-pass',
     });
 
     const connectHandler = mockClient.on.mock.calls.find(
@@ -70,6 +75,8 @@ describe('Worker', () => {
     expect(mqtt.connect).toHaveBeenCalledWith('mqtt://cli-broker:1883', {
       clientId: 'cli-worker',
       clean: false,
+      username: 'test-user',
+      password: 'test-pass',
     });
 
     const connectHandler = mockClient.on.mock.calls.find(
@@ -81,6 +88,24 @@ describe('Worker', () => {
       { qos: 1 },
       expect.any(Function),
     );
+  });
+
+  it('should override credentials with CLI arguments', () => {
+    startWorker([
+      'node',
+      'worker.js',
+      '--username',
+      'cli-user',
+      '--password',
+      'cli-pass',
+    ]);
+
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), {
+      clientId: expect.any(String),
+      clean: false,
+      username: 'cli-user',
+      password: 'cli-pass',
+    });
   });
 
   it('should handle message, execute job, and exit', () => {

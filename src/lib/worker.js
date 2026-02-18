@@ -19,6 +19,16 @@ export function startWorker(argv = process.argv) {
       process.env.MQTT_URL || 'mqtt://localhost:1883',
     )
     .option(
+      '-n, --username <username>',
+      'MQTT Username',
+      process.env.MQTT_USERNAME,
+    )
+    .option(
+      '-p, --password <password>',
+      'MQTT Password',
+      process.env.MQTT_PASSWORD,
+    )
+    .option(
       '-i, --id <id>',
       'Unique Worker ID',
       process.env.WORKER_ID || 'worker-01',
@@ -69,10 +79,15 @@ export function startWorker(argv = process.argv) {
 
   console.log(`Starting worker ${WORKER_ID} connecting to ${MQTT_URL}...`);
 
-  const client = mqtt.connect(MQTT_URL, {
+  const connectOptions = {
     clientId: WORKER_ID,
     clean: false,
-  });
+  };
+
+  if (options.username) connectOptions.username = options.username;
+  if (options.password) connectOptions.password = options.password;
+
+  const client = mqtt.connect(MQTT_URL, connectOptions);
 
   client.on('connect', () => {
     console.log('Connected to MQTT broker');
