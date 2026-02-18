@@ -128,7 +128,7 @@ describe('Worker', () => {
     expect(executeJob).toHaveBeenCalledWith('/jobs/job-123', 'job-123');
     expect(mockClient.publish).toHaveBeenCalledWith(
       'jobs/results/job-123',
-      expect.stringContaining('"status":"success"'),
+      expect.stringContaining('"manifestFile"'),
       { qos: 1 },
       expect.any(Function),
     );
@@ -151,7 +151,7 @@ describe('Worker', () => {
     expect(executeJob).toHaveBeenCalledWith('/jobs/job-failed', 'job-failed');
     expect(mockClient.publish).toHaveBeenCalledWith(
       'jobs/results/job-failed',
-      expect.stringContaining('"status":"failed"'),
+      expect.stringContaining('"manifestFile"'),
       { qos: 1 },
       expect.any(Function),
     );

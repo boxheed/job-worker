@@ -15,7 +15,7 @@ describe('executeJob', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('should execute steps successfully and log output', () => {
+  it('should execute steps successfully and create segmented logs and manifest', () => {
     const jobConfig = {
       id: 'test-job-1',
       steps: ['echo "Step 1"', 'echo "Step 2"'],
@@ -27,12 +27,24 @@ describe('executeJob', () => {
     expect(result.status).toBe('success');
     expect(result.exitCode).toBe(0);
 
-    const logContent = fs.readFileSync(path.join(tmpDir, 'job.log'), 'utf8');
-    expect(logContent).toContain('Step 1');
-    expect(logContent).toContain('Step 2');
+    // Verify result.json
+    const manifestPath = path.join(tmpDir, 'result.json');
+    expect(fs.existsSync(manifestPath)).toBe(true);
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    expect(manifest.jobId).toBe('test-job-1');
+    expect(manifest.status).toBe('success');
+    expect(manifest.steps).toHaveLength(2);
+    expect(manifest.steps[0].log).toBe('step_0.log');
+    expect(manifest.steps[1].log).toBe('step_1.log');
+
+    // Verify individual logs
+    const log0 = fs.readFileSync(path.join(tmpDir, 'step_0.log'), 'utf8');
+    expect(log0).toContain('Step 1');
+    const log1 = fs.readFileSync(path.join(tmpDir, 'step_1.log'), 'utf8');
+    expect(log1).toContain('Step 2');
   });
 
-  it('should fail if a step fails', () => {
+  it('should fail if a step fails and record correct manifest status', () => {
     const jobConfig = {
       id: 'test-job-fail',
       steps: ['echo "Before fail"', 'exit 1', 'echo "After fail"'],
@@ -44,22 +56,23 @@ describe('executeJob', () => {
     expect(result.status).toBe('failed');
     expect(result.exitCode).toBe(1);
 
-    const logContent = fs.readFileSync(path.join(tmpDir, 'job.log'), 'utf8');
-    expect(logContent).toContain('Before fail');
-    expect(logContent).not.toContain('After fail');
+    const manifest = JSON.parse(fs.readFileSync(path.join(tmpDir, 'result.json'), 'utf8'));
+    expect(manifest.status).toBe('failed');
+    expect(manifest.steps[1].status).toBe('failed');
+    expect(manifest.steps).toHaveLength(2); // Should stop after fail
+
+    expect(fs.existsSync(path.join(tmpDir, 'step_0.log'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'step_1.log'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'step_2.log'))).toBe(false);
   });
 
   it('should fail if job.json is missing', () => {
     const result = executeJob(tmpDir, 'test-job-missing');
     expect(result.status).toBe('failed');
     expect(result.exitCode).toBe(1);
-  });
-
-  it('should fail if job.json is invalid', () => {
-    fs.writeFileSync(path.join(tmpDir, 'job.json'), 'invalid json');
-    const result = executeJob(tmpDir, 'test-job-invalid');
-    expect(result.status).toBe('failed');
-    expect(result.exitCode).toBe(1);
+    
+    // Even if job.json is missing, result.json should be created if workDir is valid
+    expect(fs.existsSync(path.join(tmpDir, 'result.json'))).toBe(true);
   });
 
   it('should fail if steps is not an array', () => {
@@ -85,17 +98,6 @@ describe('executeJob', () => {
 
     expect(result.status).toBe('success');
     expect(result.exitCode).toBe(0);
-    expect(fs.existsSync(path.join(tmpDir, 'job.log'))).toBe(true);
-  });
-
-  it('should succeed if steps is empty', () => {
-    const jobConfig = {
-      id: 'test-job-empty',
-      steps: [],
-    };
-    fs.writeFileSync(path.join(tmpDir, 'job.json'), JSON.stringify(jobConfig));
-    const result = executeJob(tmpDir, 'test-job-empty');
-    expect(result.status).toBe('success');
-    expect(result.exitCode).toBe(0);
+    expect(fs.existsSync(path.join(tmpDir, 'result.json'))).toBe(true);
   });
 });

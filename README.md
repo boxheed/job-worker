@@ -58,7 +58,8 @@ The MQTT message acts as a trigger. It specifies the unique ID and the directory
   ]
 }
 ```
-* Logging: A file named job.log is automatically created inside the workDir. All stdout and stderr are redirected here in real-time.
+* Logging: The worker creates individual log files for each step (e.g., `step_0.log`, `step_1.log`).
+* Manifest: A `result.json` file is created in the `workDir` summarizing the execution results and timing.
 * Cleanup: The worker does not delete files. It is the responsibility of the Controller to purge the workDir after processing the results.
 
 3. Response Payload (`jobs/results/{id}`)
@@ -66,7 +67,7 @@ The MQTT message acts as a trigger. It specifies the unique ID and the directory
 {
   "id": "job_2026_01",
   "status": "success",
-  "logFile": "/data/active_jobs/job_2026_01/job.log",
+  "manifestFile": "/data/active_jobs/job_2026_01/result.json",
   "exitCode": 0
 }
 ```

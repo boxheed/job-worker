@@ -66,7 +66,7 @@ export function startWorker(argv = process.argv) {
       id,
       status: result.status,
       exitCode: result.exitCode,
-      logFile: path.join(path.resolve(workDir), 'job.log'),
+      manifestFile: path.join(path.resolve(workDir), 'result.json'),
     };
 
     console.log(JSON.stringify(resultPayload, null, 2));
@@ -124,7 +124,7 @@ export function startWorker(argv = process.argv) {
         id,
         status: result.status,
         exitCode: result.exitCode,
-        logFile: path.join(path.resolve(workDir), 'job.log'),
+        manifestFile: path.join(path.resolve(workDir), 'result.json'),
       };
 
       client.publish(

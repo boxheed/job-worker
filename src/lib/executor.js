@@ -7,26 +7,33 @@ import { execSync } from 'node:child_process';
  * @param {string} workDir - The directory where the job should be executed.
  * @param {string} id - The unique identifier for the job.
  * @param {object} [overrideConfig] - Optional job configuration to use instead of job.json.
- * @returns {{status: string, exitCode: number}}
+ * @returns {{status: string, exitCode: number, manifest: object}}
  */
 export function executeJob(workDir, id, overrideConfig = null) {
-  let logFd;
   const originalCwd = process.cwd();
+  const startTime = new Date().toISOString();
+  const manifest = {
+    jobId: id,
+    status: 'running',
+    timing: {
+      start: startTime,
+      end: null,
+      durationMs: 0,
+    },
+    steps: [],
+  };
+
+  let overallExitCode = 0;
+  let absoluteWorkDir;
 
   try {
-    // Resolve workDir to absolute path before changing directory
-    // This avoids issues if workDir is a relative path.
-    const absoluteWorkDir = path.resolve(workDir);
-
-    // 1. Change process directory to workDir
+    absoluteWorkDir = path.resolve(workDir);
     process.chdir(absoluteWorkDir);
 
-    // 2. Get the job definition
     let jobConfig;
     if (overrideConfig) {
       jobConfig = overrideConfig;
     } else {
-      // We assume the file is named 'job.json' as per the architecture.
       const configPath = path.join(absoluteWorkDir, 'job.json');
       if (!fs.existsSync(configPath)) {
         throw new Error(`Job definition not found at ${configPath}`);
@@ -34,49 +41,82 @@ export function executeJob(workDir, id, overrideConfig = null) {
       jobConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     }
 
-    // Validate that steps is an array
     if (!Array.isArray(jobConfig.steps)) {
       throw new Error('Job configuration must contain a "steps" array');
     }
 
-    // 3. Open a write stream to a file named job.log inside that workDir
-    const logPath = path.join(absoluteWorkDir, 'job.log');
-    logFd = fs.openSync(logPath, 'w');
+    for (let i = 0; i < jobConfig.steps.length; i++) {
+      const stepCommand = jobConfig.steps[i];
+      const stepStartTime = Date.now();
+      const logFileName = `step_${i}.log`;
+      const logPath = path.join(absoluteWorkDir, logFileName);
+      
+      const stepResult = {
+        index: i,
+        command: stepCommand,
+        status: 'running',
+        exitCode: null,
+        durationMs: 0,
+        log: logFileName,
+      };
 
-    // Write a header to the log
-    fs.writeSync(logFd, `Job ID: ${id}\n`);
-    fs.writeSync(logFd, `Working Directory: ${absoluteWorkDir}\n`);
-    fs.writeSync(logFd, `----------------------------------------\n`);
+      manifest.steps.push(stepResult);
 
-    // 4. Iterate over each step executing it
-    for (const step of jobConfig.steps) {
       try {
-        // 5. Redirect both stdout and stderr directly into the job.log file
-        execSync(step, { stdio: ['ignore', logFd, logFd] });
+        const logFd = fs.openSync(logPath, 'w');
+        try {
+          execSync(stepCommand, { stdio: ['ignore', logFd, logFd] });
+          stepResult.status = 'success';
+          stepResult.exitCode = 0;
+        } catch (error) {
+          stepResult.status = 'failed';
+          stepResult.exitCode = error.status || 1;
+          overallExitCode = stepResult.exitCode;
+          throw error; // Break the loop
+        } finally {
+          fs.closeSync(logFd);
+          stepResult.durationMs = Date.now() - stepStartTime;
+        }
       } catch (error) {
-        // 6. If any step exits with a non zero value it should end the execution
-        return { status: 'failed', exitCode: error.status || 1 };
+        // If it's the execSync error, we've already handled status. 
+        // If it's a file error, we set it here.
+        if (stepResult.status === 'running') {
+          stepResult.status = 'failed';
+          stepResult.exitCode = 1;
+          overallExitCode = 1;
+        }
+        break; 
       }
     }
 
-    // 7. Return status success
-    return { status: 'success', exitCode: 0 };
-  } catch {
-    return { status: 'failed', exitCode: 1 };
+    manifest.status = overallExitCode === 0 ? 'success' : 'failed';
+  } catch (err) {
+    manifest.status = 'failed';
+    overallExitCode = overallExitCode || 1;
+    manifest.error = err.message;
   } finally {
-    // Cleanup: close log file descriptor
-    if (logFd !== undefined) {
+    const endTime = new Date();
+    manifest.timing.end = endTime.toISOString();
+    manifest.timing.durationMs = endTime.getTime() - new Date(startTime).getTime();
+
+    // Write the result.json manifest
+    if (absoluteWorkDir) {
       try {
-        fs.closeSync(logFd);
-      } catch {
-        // ignore close errors
+        fs.writeFileSync(
+          path.join(absoluteWorkDir, 'result.json'),
+          JSON.stringify(manifest, null, 2),
+        );
+      } catch (writeErr) {
+        console.error('Failed to write result.json:', writeErr);
       }
     }
-    // Restore CWD (essential for maintaining state in tests)
+
     try {
       process.chdir(originalCwd);
     } catch {
-      // ignore chdir errors
+      // ignore
     }
   }
+
+  return { status: manifest.status, exitCode: overallExitCode, manifest };
 }
