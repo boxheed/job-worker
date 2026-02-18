@@ -7,9 +7,9 @@ When paired with a Docker restart policy, this creates a clean, serial, and resi
 ## The Architecture
 
 This worker is designed to be "Dumb & Durable":
-1. Controller (e.g., Node-RED) prepares a unique directory on the shared drive and writes necessary inputs.
-2. Controller sends a "pointer" message via MQTT.
-3. Worker executes the steps, streaming all logs directly to that shared directory.
+1. Controller (e.g., Node-RED) prepares a unique directory on the shared drive, writes the necessary inputs, and creates a `job.json` file defining the execution steps.
+2. Controller sends a "pointer" message via MQTT (containing the job ID and `workDir`).
+3. Worker connects, receives the pointer, reads `job.json` from the shared drive, and executes the steps.
 4. Worker exits, triggering a Docker restart to ensure a fresh environment for the next task.
 5. Controller reads the logs from the shared drive and deletes the directory.
 
@@ -37,11 +37,20 @@ services:
 ## Job Contract
 
 1. Request Payload (`jobs/pending`)
-The workDir must be a path relative to the container's mount point or an absolute path reachable within the container.
+The MQTT message acts as a trigger. It specifies the unique ID and the directory where the worker should look for the `job.json` definition.
 ```JSON
 {
   "id": "job_2026_01",
-  "workDir": "/data/active_jobs/job_2026_01",
+  "workDir": "/data/active_jobs/job_2026_01"
+}
+```
+
+2. Execution Behavior
+* Working Directory: The worker automatically cds into the workDir before executing steps.
+* Job Definition: The worker **strictly** expects a `job.json` file in the `workDir`. This file must contain a `steps` array.
+* Steps Example (`job.json`):
+```json
+{
   "steps": [
     "npm install",
     "npm run build",
@@ -49,10 +58,6 @@ The workDir must be a path relative to the container's mount point or an absolut
   ]
 }
 ```
-
-2. Execution Behavior
-* Working Directory: The worker automatically cds into the workDir before executing steps.
-* Job Definition: The worker expects a `job.json` file in the `workDir` containing the steps to execute.
 * Logging: A file named job.log is automatically created inside the workDir. All stdout and stderr are redirected here in real-time.
 * Cleanup: The worker does not delete files. It is the responsibility of the Controller to purge the workDir after processing the results.
 

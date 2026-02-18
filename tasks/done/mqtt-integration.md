@@ -19,7 +19,7 @@ Implemented MQTT worker logic in `./bin/worker.js` to connect to a broker, subsc
 
 ### `package.json`
 - Added `mqtt` dependency.
-- Updated `bin` entry `job-worker` to point to `./bin/worker.js`.
+- Updated `bin` entry `mqtt-fs-worker` to point to `./bin/worker.js`.
 
 ### `tests/worker.test.js`
 - Added unit tests for the worker logic using Vitest and mocks.
