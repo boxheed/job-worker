@@ -12,7 +12,8 @@
     "bin"
   ],
   "scripts": {
-    "test": "vitest run",
+    "build": "npm run lint && npm run test",
+    "test": "vitest run --sequence.concurrent=false",
     "dev": "vitest",
     "start": "node bin/worker.js",
     "lint": "eslint 'src/**/*.js' 'tests/**/*.js'",
