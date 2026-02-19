@@ -1,15 +1,52 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+
+/**
+ * Executes a single step of a job.
+ * @param {string} command - The command to execute.
+ * @param {string} logPath - Path to the log file for this step.
+ * @returns {Promise<number>} Resolves with the exit code.
+ */
+async function executeStep(command, logPath) {
+  return new Promise((resolve) => {
+    const logStream = fs.createWriteStream(logPath);
+    const child = spawn(command, {
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    child.stdout.pipe(logStream);
+    child.stderr.pipe(logStream);
+
+    let exitCode = null;
+
+    child.on('close', (code) => {
+      exitCode = code ?? 1;
+      logStream.end();
+    });
+
+    child.on('error', (err) => {
+      console.error(`Spawn error for command "${command}":`, err);
+      logStream.write(`\nSpawn error: ${err.message}\n`);
+      exitCode = 1;
+      logStream.end();
+    });
+
+    logStream.on('finish', () => {
+      resolve(exitCode ?? 1);
+    });
+  });
+}
 
 /**
  * Executes a job by reading its definition from workDir and running steps.
  * @param {string} workDir - The directory where the job should be executed.
  * @param {string} id - The unique identifier for the job.
  * @param {object} [overrideConfig] - Optional job configuration to use instead of job.json.
- * @returns {{status: string, exitCode: number, manifest: object}}
+ * @returns {Promise<{status: string, exitCode: number, manifest: object}>}
  */
-export function executeJob(workDir, id, overrideConfig = null) {
+export async function executeJob(workDir, id, overrideConfig = null) {
   const originalCwd = process.cwd();
   const startTime = new Date().toISOString();
   const manifest = {
@@ -50,7 +87,7 @@ export function executeJob(workDir, id, overrideConfig = null) {
       const stepStartTime = Date.now();
       const logFileName = `step_${i}.log`;
       const logPath = path.join(absoluteWorkDir, logFileName);
-      
+
       const stepResult = {
         index: i,
         command: stepCommand,
@@ -62,30 +99,16 @@ export function executeJob(workDir, id, overrideConfig = null) {
 
       manifest.steps.push(stepResult);
 
-      try {
-        const logFd = fs.openSync(logPath, 'w');
-        try {
-          execSync(stepCommand, { stdio: ['ignore', logFd, logFd] });
-          stepResult.status = 'success';
-          stepResult.exitCode = 0;
-        } catch (error) {
-          stepResult.status = 'failed';
-          stepResult.exitCode = error.status || 1;
-          overallExitCode = stepResult.exitCode;
-          throw error; // Break the loop
-        } finally {
-          fs.closeSync(logFd);
-          stepResult.durationMs = Date.now() - stepStartTime;
-        }
-      } catch (error) {
-        // If it's the execSync error, we've already handled status. 
-        // If it's a file error, we set it here.
-        if (stepResult.status === 'running') {
-          stepResult.status = 'failed';
-          stepResult.exitCode = 1;
-          overallExitCode = 1;
-        }
-        break; 
+      const exitCode = await executeStep(stepCommand, logPath);
+      stepResult.durationMs = Date.now() - stepStartTime;
+      stepResult.exitCode = exitCode;
+
+      if (exitCode === 0) {
+        stepResult.status = 'success';
+      } else {
+        stepResult.status = 'failed';
+        overallExitCode = exitCode;
+        break;
       }
     }
 
@@ -97,7 +120,8 @@ export function executeJob(workDir, id, overrideConfig = null) {
   } finally {
     const endTime = new Date();
     manifest.timing.end = endTime.toISOString();
-    manifest.timing.durationMs = endTime.getTime() - new Date(startTime).getTime();
+    manifest.timing.durationMs =
+      endTime.getTime() - new Date(startTime).getTime();
 
     // Write the result.json manifest
     if (absoluteWorkDir) {

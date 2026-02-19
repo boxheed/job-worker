@@ -20,6 +20,9 @@ describe('Worker', () => {
       subscribe: vi.fn((topic, opts, cb) => {
         if (cb) cb(null);
       }),
+      unsubscribe: vi.fn((topic, cb) => {
+        if (cb) cb(null);
+      }),
       publish: vi.fn((topic, payload, opts, cb) => {
         if (cb) cb(null);
       }),
@@ -28,6 +31,7 @@ describe('Worker', () => {
       }),
     };
     mqtt.connect.mockClear();
+    vi.clearAllMocks();
     vi.mocked(mqtt.connect).mockReturnValue(mockClient);
     vi.spyOn(process, 'exit').mockImplementation(() => {});
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -39,8 +43,8 @@ describe('Worker', () => {
     vi.restoreAllMocks();
   });
 
-  it('should use environment variables as defaults', () => {
-    startWorker(['node', 'worker.js']);
+  it('should use environment variables as defaults', async () => {
+    await startWorker(['node', 'worker.js']);
 
     expect(mqtt.connect).toHaveBeenCalledWith('mqtt://test-broker:1883', {
       clientId: 'test-worker',
@@ -60,8 +64,8 @@ describe('Worker', () => {
     );
   });
 
-  it('should override defaults with CLI arguments', () => {
-    startWorker([
+  it('should override defaults with CLI arguments', async () => {
+    await startWorker([
       'node',
       'worker.js',
       '-u',
@@ -90,8 +94,8 @@ describe('Worker', () => {
     );
   });
 
-  it('should override credentials with CLI arguments', () => {
-    startWorker([
+  it('should override credentials with CLI arguments', async () => {
+    await startWorker([
       'node',
       'worker.js',
       '--username',
@@ -108,9 +112,9 @@ describe('Worker', () => {
     });
   });
 
-  it('should handle message, execute job, and exit', () => {
-    vi.mocked(executeJob).mockReturnValue({ status: 'success', exitCode: 0 });
-    startWorker(['node', 'worker.js']);
+  it('should handle message, execute job, and exit', async () => {
+    vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
+    await startWorker(['node', 'worker.js']);
 
     // Simulate connect
     const connectHandler = mockClient.on.mock.calls.find(
@@ -125,6 +129,8 @@ describe('Worker', () => {
     const payload = { id: 'job-123', workDir: '/jobs/job-123' };
     messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload)));
 
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
+
     expect(executeJob).toHaveBeenCalledWith('/jobs/job-123', 'job-123');
     expect(mockClient.publish).toHaveBeenCalledWith(
       'jobs/results/job-123',
@@ -134,12 +140,11 @@ describe('Worker', () => {
     );
 
     expect(mockClient.end).toHaveBeenCalled();
-    expect(process.exit).toHaveBeenCalledWith(0);
   });
 
-  it('should handle failed job execution', () => {
-    vi.mocked(executeJob).mockReturnValue({ status: 'failed', exitCode: 1 });
-    startWorker(['node', 'worker.js']);
+  it('should handle failed job execution', async () => {
+    vi.mocked(executeJob).mockResolvedValue({ status: 'failed', exitCode: 1 });
+    await startWorker(['node', 'worker.js']);
 
     // Simulate message
     const messageHandler = mockClient.on.mock.calls.find(
@@ -147,6 +152,8 @@ describe('Worker', () => {
     )[1];
     const payload = { id: 'job-failed', workDir: '/jobs/job-failed' };
     messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload)));
+
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalled());
 
     expect(executeJob).toHaveBeenCalledWith('/jobs/job-failed', 'job-failed');
     expect(mockClient.publish).toHaveBeenCalledWith(
@@ -157,7 +164,60 @@ describe('Worker', () => {
     );
 
     expect(mockClient.end).toHaveBeenCalled();
-    expect(process.exit).toHaveBeenCalledWith(0);
+  });
+
+  it('should only process the first message and ignore subsequent ones', async () => {
+    vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
+    await startWorker(['node', 'worker.js']);
+
+    const messageHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'message',
+    )[1];
+
+    const payload1 = { id: 'job-1', workDir: '/jobs/1' };
+    const payload2 = { id: 'job-2', workDir: '/jobs/2' };
+
+    // Send two messages
+    messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload1)));
+    messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload2)));
+
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalled());
+
+    expect(executeJob).toHaveBeenCalledTimes(1);
+    expect(executeJob).toHaveBeenCalledWith('/jobs/1', 'job-1');
+    expect(mockClient.unsubscribe).toHaveBeenCalledWith(
+      'jobs/pending',
+      expect.any(Function),
+    );
+  });
+
+  it('should exit if receiving malformed JSON', async () => {
+    await startWorker(['node', 'worker.js']);
+
+    const messageHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'message',
+    )[1];
+
+    messageHandler('jobs/pending', Buffer.from('invalid json'));
+
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
+    expect(mockClient.unsubscribe).toHaveBeenCalled();
+    expect(mockClient.end).toHaveBeenCalled();
+  });
+
+  it('should exit if receiving payload with missing fields', async () => {
+    await startWorker(['node', 'worker.js']);
+
+    const messageHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'message',
+    )[1];
+
+    const invalidPayload = { some: 'other field' };
+    messageHandler('jobs/pending', Buffer.from(JSON.stringify(invalidPayload)));
+
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
+    expect(mockClient.unsubscribe).toHaveBeenCalled();
+    expect(mockClient.end).toHaveBeenCalled();
   });
 
   describe('Signal Handling', () => {
@@ -166,7 +226,10 @@ describe('Worker', () => {
       setupSignalHandlers(mockClient);
 
       expect(processOnSpy).toHaveBeenCalledWith('SIGINT', expect.any(Function));
-      expect(processOnSpy).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
+      expect(processOnSpy).toHaveBeenCalledWith(
+        'SIGTERM',
+        expect.any(Function),
+      );
     });
 
     it('should disconnect and exit on SIGINT', () => {

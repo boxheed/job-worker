@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { startWorker, setupSignalHandlers } from '../src/lib/worker.js';
 
-const client = startWorker();
-setupSignalHandlers(client);
+const client = await startWorker();
+if (client) {
+  setupSignalHandlers(client);
+}

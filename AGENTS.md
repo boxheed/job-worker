@@ -25,7 +25,7 @@ This repository is a Node.js CLI tool written in JavaScript.
 
 - The `executeJob(workDir, id)` function in `src/lib/executor.js` is the core engine.
 - It expects a `job.json` in the `workDir`.
-- It redirects all output to `job.log` in the `workDir`.
+- It creates a `result.json` manifest and redirects output for each step to individual log files (`step_N.log`) in the `workDir`.
 
 ## CLI Execution
 
