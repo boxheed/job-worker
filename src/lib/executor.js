@@ -20,21 +20,30 @@ async function executeStep(command, logPath) {
     child.stderr.pipe(logStream);
 
     let exitCode = null;
+    let finished = false;
+
+    const onFinished = () => {
+      if (finished) return;
+      finished = true;
+      resolve(exitCode ?? 1);
+    };
 
     child.on('close', (code) => {
-      exitCode = code ?? 1;
+      exitCode = code;
       logStream.end();
     });
 
     child.on('error', (err) => {
       console.error(`Spawn error for command "${command}":`, err);
       logStream.write(`\nSpawn error: ${err.message}\n`);
-      exitCode = 1;
+      exitCode = exitCode ?? 1;
       logStream.end();
     });
 
-    logStream.on('finish', () => {
-      resolve(exitCode ?? 1);
+    logStream.on('finish', onFinished);
+    logStream.on('error', (err) => {
+      console.error(`LogStream error:`, err);
+      onFinished();
     });
   });
 }

@@ -1,6 +1,6 @@
 {
-  "name": "job-worker",
-  "version": "1.0.0",
+  "name": "mqtt-job-worker",
+  "version": "0.1.0",
   "description": "CLI package for job worker",
   "type": "module",
   "main": "src/index.js",
@@ -11,6 +11,10 @@
     "src",
     "bin"
   ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "preferGlobal": true,
   "scripts": {
     "build": "npm run lint && npm run test",
     "test": "vitest run --sequence.concurrent=false",
@@ -23,9 +27,14 @@
     "type": "git",
     "url": "git+https://github.com/boxheed/job-worker.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "mqtt",
+    "worker",
+    "job-executor",
+    "cli"
+  ],
+  "author": "Andrew Dunn",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "eslint": "^9.39.2",
