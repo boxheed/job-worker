@@ -7,10 +7,6 @@
   "bin": {
     "mqtt-fs-worker": "./bin/worker.js"
   },
-  "files": [
-    "src",
-    "bin"
-  ],
   "engines": {
     "node": ">=20.0.0"
   },
