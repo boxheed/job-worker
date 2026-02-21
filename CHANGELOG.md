@@ -1,0 +1,28 @@
+# Changelog
+
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+### 0.1.1 (2026-02-21)
+
+
+### Features
+
+* add build script and GitHub Actions CI workflow ([eb4678a](https://github.com/boxheed/job-worker/commit/eb4678a623023e85976fc02afbd6e996e5c3c8b9))
+* add build script and GitHub Actions CI workflow ([669d8ec](https://github.com/boxheed/job-worker/commit/669d8ec519a3490680ed5ecd5c813fb0e6ca42ed))
+* add CLI argument parsing for worker configuration ([4cab26e](https://github.com/boxheed/job-worker/commit/4cab26e0cbf2093d6fc8751715db255a86e58437))
+* add MQTT authentication and documentation ([b4c54b7](https://github.com/boxheed/job-worker/commit/b4c54b7166eea66313533f097ac4dc085ab25c07))
+* add robust process signal handling for SIGINT and SIGTERM ([7b2b767](https://github.com/boxheed/job-worker/commit/7b2b767cba8123a70e2896f790e01c4b77f984f1))
+* added devcontainer configuration ([2e0d8b1](https://github.com/boxheed/job-worker/commit/2e0d8b1014fe37d542f66dcb2a30f8f6fc3617d1))
+* enabling dependabot ([cb9efb4](https://github.com/boxheed/job-worker/commit/cb9efb4715de931dea731c84dff1b37426fbbc04))
+* implement core execution logic in lib/executor.js ([64465fa](https://github.com/boxheed/job-worker/commit/64465fa30c21dbe8421d4ad11e10ee4d786ac1f3))
+* implement segmented manifest results and individual step logging ([d9afa59](https://github.com/boxheed/job-worker/commit/d9afa5935841904dec5f3ef088bcf506b087fbe8))
+* make mqtt-fs-worker script executable and globally accessible ([1f5baca](https://github.com/boxheed/job-worker/commit/1f5baca6b059ddcb95654394da2e25f4559c9c38))
+* update project metadata and improve executor logic ([7b0577f](https://github.com/boxheed/job-worker/commit/7b0577f064b4db8d24e4e80c70ab2e363d046675))
+* updated documentation ([d86aaa2](https://github.com/boxheed/job-worker/commit/d86aaa2599cf17230fba6da4dcc984fd11b207ec))
+
+
+### Bug Fixes
+
+* correcting for npm install ([8f9380a](https://github.com/boxheed/job-worker/commit/8f9380ad84cf8744fe44ff06c2c0a89604dd967c))
+* remove files array from package.json to fix installation issues ([d577da2](https://github.com/boxheed/job-worker/commit/d577da23be07664b17814d8d2508e48e39bd230d))
+* updated lock file ([ab214f1](https://github.com/boxheed/job-worker/commit/ab214f1c915370af41c15d26c178d0fc3389c788))
