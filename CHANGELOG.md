@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.9](https://github.com/boxheed/job-worker/compare/v0.1.8...v0.1.9) (2026-02-22)
+
+
+### Features
+
+* change manifestFile to a relative path in result payload ([944a945](https://github.com/boxheed/job-worker/commit/944a9457f2bdd4d541c774e2e6327551cad65ee3))
+
 ### [0.1.8](https://github.com/boxheed/job-worker/compare/v0.1.7...v0.1.8) (2026-02-22)
 
 
