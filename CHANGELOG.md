@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.7](https://github.com/boxheed/job-worker/compare/v0.1.6...v0.1.7) (2026-02-22)
+
+
+### Features
+
+* add support for MQTT_TOPIC environment variable ([1752c16](https://github.com/boxheed/job-worker/commit/1752c1669a4bd05975dcda75f82e2fb094be5ae2))
+
 ### [0.1.6](https://github.com/boxheed/job-worker/compare/v0.1.5...v0.1.6) (2026-02-22)
 
 
