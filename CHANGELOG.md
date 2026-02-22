@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.10](https://github.com/boxheed/job-worker/compare/v0.1.9...v0.1.10) (2026-02-22)
+
+
+### Features
+
+* implement manual acknowledgments and MQTT v5 migration ([bc35e9f](https://github.com/boxheed/job-worker/commit/bc35e9f1dcf0d8538044cd06e6935d63e49436e6))
+
 ### [0.1.9](https://github.com/boxheed/job-worker/compare/v0.1.8...v0.1.9) (2026-02-22)
 
 
