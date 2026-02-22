@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.8](https://github.com/boxheed/job-worker/compare/v0.1.7...v0.1.8) (2026-02-22)
+
+
+### Features
+
+* implement Managed Workspace architecture for job execution ([2d9000e](https://github.com/boxheed/job-worker/commit/2d9000ed6639174d4c5a674d7fd9f1b65b0c494c))
+
 ### [0.1.7](https://github.com/boxheed/job-worker/compare/v0.1.6...v0.1.7) (2026-02-22)
 
 
