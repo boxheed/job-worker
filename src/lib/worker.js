@@ -58,7 +58,11 @@ export async function startWorker(argv = process.argv) {
       'Unique Worker ID',
       process.env.WORKER_ID || 'worker-01',
     )
-    .option('-t, --topic <topic>', 'Subscription topic', 'jobs/pending')
+    .option(
+      '-t, --topic <topic>',
+      'Subscription topic',
+      process.env.MQTT_TOPIC || 'jobs/pending',
+    )
     .option('--dry-run', 'Run in dry-run mode using test-payload.json')
     .parse(argv);
 

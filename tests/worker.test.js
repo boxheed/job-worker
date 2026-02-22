@@ -14,6 +14,7 @@ describe('Worker', () => {
     vi.stubEnv('WORKER_ID', 'test-worker');
     vi.stubEnv('MQTT_USERNAME', 'test-user');
     vi.stubEnv('MQTT_PASSWORD', 'test-pass');
+    vi.stubEnv('MQTT_TOPIC', 'test/jobs');
 
     mockClient = {
       on: vi.fn(),
@@ -58,7 +59,7 @@ describe('Worker', () => {
     )[1];
     connectHandler();
     expect(mockClient.subscribe).toHaveBeenCalledWith(
-      'jobs/pending',
+      'test/jobs',
       { qos: 1 },
       expect.any(Function),
     );
@@ -127,7 +128,7 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-123', workDir: '/jobs/job-123' };
-    messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload)));
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)));
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
@@ -151,7 +152,7 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-failed', workDir: '/jobs/job-failed' };
-    messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload)));
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)));
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalled());
 
@@ -178,15 +179,15 @@ describe('Worker', () => {
     const payload2 = { id: 'job-2', workDir: '/jobs/2' };
 
     // Send two messages
-    messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload1)));
-    messageHandler('jobs/pending', Buffer.from(JSON.stringify(payload2)));
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload1)));
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload2)));
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalled());
 
     expect(executeJob).toHaveBeenCalledTimes(1);
     expect(executeJob).toHaveBeenCalledWith('/jobs/1', 'job-1');
     expect(mockClient.unsubscribe).toHaveBeenCalledWith(
-      'jobs/pending',
+      'test/jobs',
       expect.any(Function),
     );
   });
@@ -198,7 +199,7 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
 
-    messageHandler('jobs/pending', Buffer.from('invalid json'));
+    messageHandler('test/jobs', Buffer.from('invalid json'));
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
     expect(mockClient.unsubscribe).toHaveBeenCalled();
@@ -213,7 +214,7 @@ describe('Worker', () => {
     )[1];
 
     const invalidPayload = { some: 'other field' };
-    messageHandler('jobs/pending', Buffer.from(JSON.stringify(invalidPayload)));
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(invalidPayload)));
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
     expect(mockClient.unsubscribe).toHaveBeenCalled();
