@@ -20,10 +20,6 @@
     "format": "prettier --write 'src/**/*.js' 'tests/**/*.js'",
     "release": "standard-version --commit-all"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/boxheed/job-worker.git"
-  },
   "keywords": [
     "mqtt",
     "worker",
