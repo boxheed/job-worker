@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.4](https://github.com/boxheed/job-worker/compare/v0.1.3...v0.1.4) (2026-02-22)
+
+
+### Bug Fixes
+
+* update node engine version and ensure files section is defined ([e47a3d7](https://github.com/boxheed/job-worker/commit/e47a3d7dab9881b46bb7afbe575f6282a3102968))
+
 ### [0.1.3](https://github.com/boxheed/job-worker/compare/v0.1.2...v0.1.3) (2026-02-22)
 
 
