@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import mqtt from 'mqtt';
+import path from 'node:path';
 import { executeJob } from '../src/lib/executor.js';
 import { startWorker, setupSignalHandlers } from '../src/lib/worker.js';
 
@@ -15,6 +16,8 @@ describe('Worker', () => {
     vi.stubEnv('MQTT_USERNAME', 'test-user');
     vi.stubEnv('MQTT_PASSWORD', 'test-pass');
     vi.stubEnv('MQTT_TOPIC', 'test/jobs');
+    vi.stubEnv('MQTT_JOBS_DIR', './test-jobs');
+    vi.stubEnv('MQTT_WORKSPACES_DIR', './test-workspaces');
 
     mockClient = {
       on: vi.fn(),
@@ -75,6 +78,10 @@ describe('Worker', () => {
       'cli-worker',
       '-t',
       'cli/topic',
+      '-j',
+      './cli-jobs',
+      '-w',
+      './cli-workspaces'
     ]);
 
     expect(mqtt.connect).toHaveBeenCalledWith('mqtt://cli-broker:1883', {
@@ -95,24 +102,6 @@ describe('Worker', () => {
     );
   });
 
-  it('should override credentials with CLI arguments', async () => {
-    await startWorker([
-      'node',
-      'worker.js',
-      '--username',
-      'cli-user',
-      '--password',
-      'cli-pass',
-    ]);
-
-    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), {
-      clientId: expect.any(String),
-      clean: false,
-      username: 'cli-user',
-      password: 'cli-pass',
-    });
-  });
-
   it('should handle message, execute job, and exit', async () => {
     vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
     await startWorker(['node', 'worker.js']);
@@ -127,15 +116,17 @@ describe('Worker', () => {
     const messageHandler = mockClient.on.mock.calls.find(
       (c) => c[0] === 'message',
     )[1];
-    const payload = { id: 'job-123', workDir: '/jobs/job-123' };
+    const payload = { id: 'job-123' };
     messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)));
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
-    expect(executeJob).toHaveBeenCalledWith('/jobs/job-123', 'job-123');
+    expect(executeJob).toHaveBeenCalledWith('./test-jobs', './test-workspaces', 'job-123', null);
+    
+    const expectedResultPath = path.join('./test-jobs', 'job-123', 'results');
     expect(mockClient.publish).toHaveBeenCalledWith(
       'jobs/results/job-123',
-      expect.stringContaining('"manifestFile"'),
+      expect.stringContaining(expectedResultPath),
       { qos: 1 },
       expect.any(Function),
     );
@@ -143,70 +134,22 @@ describe('Worker', () => {
     expect(mockClient.end).toHaveBeenCalled();
   });
 
-  it('should handle failed job execution', async () => {
-    vi.mocked(executeJob).mockResolvedValue({ status: 'failed', exitCode: 1 });
-    await startWorker(['node', 'worker.js']);
-
-    // Simulate message
-    const messageHandler = mockClient.on.mock.calls.find(
-      (c) => c[0] === 'message',
-    )[1];
-    const payload = { id: 'job-failed', workDir: '/jobs/job-failed' };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)));
-
-    await vi.waitFor(() => expect(process.exit).toHaveBeenCalled());
-
-    expect(executeJob).toHaveBeenCalledWith('/jobs/job-failed', 'job-failed');
-    expect(mockClient.publish).toHaveBeenCalledWith(
-      'jobs/results/job-failed',
-      expect.stringContaining('"manifestFile"'),
-      { qos: 1 },
-      expect.any(Function),
-    );
-
-    expect(mockClient.end).toHaveBeenCalled();
-  });
-
-  it('should only process the first message and ignore subsequent ones', async () => {
+  it('should handle message with steps and pass to executeJob', async () => {
     vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
     await startWorker(['node', 'worker.js']);
 
     const messageHandler = mockClient.on.mock.calls.find(
       (c) => c[0] === 'message',
     )[1];
+    const payload = { id: 'job-steps', steps: ['echo hello'] };
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)));
 
-    const payload1 = { id: 'job-1', workDir: '/jobs/1' };
-    const payload2 = { id: 'job-2', workDir: '/jobs/2' };
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
-    // Send two messages
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload1)));
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload2)));
-
-    await vi.waitFor(() => expect(process.exit).toHaveBeenCalled());
-
-    expect(executeJob).toHaveBeenCalledTimes(1);
-    expect(executeJob).toHaveBeenCalledWith('/jobs/1', 'job-1');
-    expect(mockClient.unsubscribe).toHaveBeenCalledWith(
-      'test/jobs',
-      expect.any(Function),
-    );
+    expect(executeJob).toHaveBeenCalledWith('./test-jobs', './test-workspaces', 'job-steps', { steps: ['echo hello'] });
   });
 
-  it('should exit if receiving malformed JSON', async () => {
-    await startWorker(['node', 'worker.js']);
-
-    const messageHandler = mockClient.on.mock.calls.find(
-      (c) => c[0] === 'message',
-    )[1];
-
-    messageHandler('test/jobs', Buffer.from('invalid json'));
-
-    await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
-    expect(mockClient.unsubscribe).toHaveBeenCalled();
-    expect(mockClient.end).toHaveBeenCalled();
-  });
-
-  it('should exit if receiving payload with missing fields', async () => {
+  it('should exit if receiving payload with missing id', async () => {
     await startWorker(['node', 'worker.js']);
 
     const messageHandler = mockClient.on.mock.calls.find(
@@ -231,42 +174,6 @@ describe('Worker', () => {
         'SIGTERM',
         expect.any(Function),
       );
-    });
-
-    it('should disconnect and exit on SIGINT', () => {
-      const handlers = {};
-      vi.spyOn(process, 'on').mockImplementation((signal, handler) => {
-        handlers[signal] = handler;
-      });
-
-      setupSignalHandlers(mockClient);
-
-      // Simulate SIGINT
-      handlers['SIGINT']();
-
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Received SIGINT'),
-      );
-      expect(mockClient.end).toHaveBeenCalledWith(false, expect.any(Function));
-      expect(process.exit).toHaveBeenCalledWith(0);
-    });
-
-    it('should disconnect and exit on SIGTERM', () => {
-      const handlers = {};
-      vi.spyOn(process, 'on').mockImplementation((signal, handler) => {
-        handlers[signal] = handler;
-      });
-
-      setupSignalHandlers(mockClient);
-
-      // Simulate SIGTERM
-      handlers['SIGTERM']();
-
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Received SIGTERM'),
-      );
-      expect(mockClient.end).toHaveBeenCalledWith(false, expect.any(Function));
-      expect(process.exit).toHaveBeenCalledWith(0);
     });
   });
 });

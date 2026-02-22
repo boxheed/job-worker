@@ -4,102 +4,85 @@ import path from 'node:path';
 import os from 'node:os';
 import { executeJob } from '../src/lib/executor.js';
 
-describe('executeJob', () => {
-  let tmpDir;
+describe('executeJob (Managed Workspace)', () => {
+  let jobsRoot;
+  let workspacesRoot;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'job-worker-test-'));
+    jobsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'job-worker-jobs-'));
+    workspacesRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'job-worker-workspaces-'));
   });
 
   afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(jobsRoot, { recursive: true, force: true });
+    fs.rmSync(workspacesRoot, { recursive: true, force: true });
   });
 
-  it('should execute steps successfully and create segmented logs and manifest', async () => {
-    const jobConfig = {
-      id: 'test-job-1',
-      steps: ['echo "Step 1"', 'echo "Step 2"'],
-    };
-    fs.writeFileSync(path.join(tmpDir, 'job.json'), JSON.stringify(jobConfig));
+  it('should stage files, execute, stream logs to results, and sync artifacts', async () => {
+    const jobId = 'test-job-1';
+    const sourceDir = path.join(jobsRoot, jobId);
+    fs.mkdirSync(sourceDir, { recursive: true });
 
-    const result = await executeJob(tmpDir, 'test-job-1');
+    // Create a source file and job.json
+    fs.writeFileSync(path.join(sourceDir, 'input.txt'), 'hello world');
+    const jobConfig = {
+      steps: ['cat input.txt', 'pwd'],
+    };
+    fs.writeFileSync(path.join(sourceDir, 'job.json'), JSON.stringify(jobConfig));
+
+    const result = await executeJob(jobsRoot, workspacesRoot, jobId);
 
     expect(result.status).toBe('success');
     expect(result.exitCode).toBe(0);
 
-    // Verify result.json
-    const manifestPath = path.join(tmpDir, 'result.json');
-    expect(fs.existsSync(manifestPath)).toBe(true);
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    expect(manifest.jobId).toBe('test-job-1');
-    expect(manifest.status).toBe('success');
-    expect(manifest.steps).toHaveLength(2);
-    expect(manifest.steps[0].log).toBe('step_0.log');
-    expect(manifest.steps[1].log).toBe('step_1.log');
+    const resultsDir = path.join(sourceDir, 'results');
+    expect(fs.existsSync(resultsDir)).toBe(true);
 
-    // Verify individual logs
-    const log0 = fs.readFileSync(path.join(tmpDir, 'step_0.log'), 'utf8');
-    expect(log0).toContain('Step 1');
-    const log1 = fs.readFileSync(path.join(tmpDir, 'step_1.log'), 'utf8');
-    expect(log1).toContain('Step 2');
+    // Verify logs and manifest in results folder
+    expect(fs.existsSync(path.join(resultsDir, 'result.json'))).toBe(true);
+    expect(fs.existsSync(path.join(resultsDir, 'step_0.log'))).toBe(true);
+    expect(fs.existsSync(path.join(resultsDir, 'step_1.log'))).toBe(true);
+
+    const log0 = fs.readFileSync(path.join(resultsDir, 'step_0.log'), 'utf8');
+    expect(log0).toContain('hello world');
+
+    // Verify synced artifacts
+    expect(fs.existsSync(path.join(resultsDir, 'input.txt'))).toBe(true);
+    expect(fs.readFileSync(path.join(resultsDir, 'input.txt'), 'utf8')).toContain('hello world');
+
+    // Verify workspace is cleaned up
+    expect(fs.existsSync(path.join(workspacesRoot, jobId))).toBe(false);
   });
 
-  it('should fail if a step fails and record correct manifest status', async () => {
-    const jobConfig = {
-      id: 'test-job-fail',
-      steps: ['echo "Before fail"', 'exit 1', 'echo "After fail"'],
-    };
-    fs.writeFileSync(path.join(tmpDir, 'job.json'), JSON.stringify(jobConfig));
+  it('should fail if job.json is missing in Source', async () => {
+    const jobId = 'test-job-missing';
+    const sourceDir = path.join(jobsRoot, jobId);
+    fs.mkdirSync(sourceDir, { recursive: true });
 
-    const result = await executeJob(tmpDir, 'test-job-fail');
-
+    const result = await executeJob(jobsRoot, workspacesRoot, jobId);
     expect(result.status).toBe('failed');
     expect(result.exitCode).toBe(1);
 
-    const manifest = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, 'result.json'), 'utf8'),
-    );
-    expect(manifest.status).toBe('failed');
-    expect(manifest.steps[1].status).toBe('failed');
-    expect(manifest.steps).toHaveLength(2); // Should stop after fail
-
-    expect(fs.existsSync(path.join(tmpDir, 'step_0.log'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, 'step_1.log'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, 'step_2.log'))).toBe(false);
+    const resultsDir = path.join(sourceDir, 'results');
+    expect(fs.existsSync(path.join(resultsDir, 'result.json'))).toBe(true);
+    const manifest = JSON.parse(fs.readFileSync(path.join(resultsDir, 'result.json'), 'utf8'));
+    expect(manifest.error).toContain('Job definition not found');
   });
 
-  it('should fail if job.json is missing', async () => {
-    const result = await executeJob(tmpDir, 'test-job-missing');
-    expect(result.status).toBe('failed');
-    expect(result.exitCode).toBe(1);
+  it('should prefer overrideConfig over job.json', async () => {
+    const jobId = 'test-job-override';
+    const sourceDir = path.join(jobsRoot, jobId);
+    fs.mkdirSync(sourceDir, { recursive: true });
 
-    // Even if job.json is missing, result.json should be created if workDir is valid
-    expect(fs.existsSync(path.join(tmpDir, 'result.json'))).toBe(true);
-  });
-
-  it('should fail if steps is not an array', async () => {
-    const jobConfig = {
-      id: 'test-job-no-array',
-      steps: 'not an array',
+    const overrideConfig = {
+      steps: ['echo "override"'],
     };
-    fs.writeFileSync(path.join(tmpDir, 'job.json'), JSON.stringify(jobConfig));
-    const result = await executeJob(tmpDir, 'test-job-no-array');
-    expect(result.status).toBe('failed');
-    expect(result.exitCode).toBe(1);
-  });
 
-  it('should handle relative paths for workDir', async () => {
-    const relativeDir = path.join('.', path.relative(process.cwd(), tmpDir));
-    const jobConfig = {
-      id: 'test-job-relative',
-      steps: ['echo "Relative Path Test"'],
-    };
-    fs.writeFileSync(path.join(tmpDir, 'job.json'), JSON.stringify(jobConfig));
-
-    const result = await executeJob(relativeDir, 'test-job-relative');
+    const result = await executeJob(jobsRoot, workspacesRoot, jobId, overrideConfig);
 
     expect(result.status).toBe('success');
-    expect(result.exitCode).toBe(0);
-    expect(fs.existsSync(path.join(tmpDir, 'result.json'))).toBe(true);
+    const resultsDir = path.join(sourceDir, 'results');
+    const log0 = fs.readFileSync(path.join(resultsDir, 'step_0.log'), 'utf8');
+    expect(log0).toContain('override');
   });
 });

@@ -1,116 +1,104 @@
-# Job Worker
+# MQTT Job Worker
 
 A lightweight, "one-shot" job execution engine designed for a Hybrid Orchestration pattern. It uses MQTT for signaling and a shared host filesystem for data persistence and logging.
 
-When paired with a Docker restart policy, this creates a clean, serial, and resilient job queue that clears its own memory and environment state after every task.
+This worker implements a **Managed Workspace** architecture. It decouples the shared storage from the execution environment, providing isolation and clean state management.
 
 ## The Architecture
 
-This worker is designed to be "Dumb & Durable":
-1. Controller (e.g., Node-RED) prepares a unique directory on the shared drive, writes the necessary inputs, and creates a `job.json` file defining the execution steps.
-2. Controller sends a "pointer" message via MQTT (containing the job ID and `workDir`).
-3. Worker connects, receives the pointer, reads `job.json` from the shared drive, and executes the steps.
-4. Worker exits, triggering a Docker restart to ensure a fresh environment for the next task.
-5. Controller reads the logs from the shared drive and deletes the directory.
+1.  **Staging:** When a job is received (via MQTT ID), the worker resolves the source directory on the shared drive and stages (copies) its contents to a local, isolated workspace.
+2.  **Execution:** The worker executes the job steps inside the local workspace.
+3.  **Real-Time Logging:** Logs are streamed in real-time directly back to a `results/` folder in the shared directory, allowing the controller to monitor progress.
+4.  **Artifact Sync:** Upon completion, any new or modified files in the workspace are synchronized back to the shared `results/` folder.
+5.  **Cleanup:** The local workspace is purged, and the worker exits (triggering a restart for a fresh environment).
 
 ## Installation
 
 ```bash
-# Install as a global executable from your private/public repo
-npm install -g https://<TOKEN>@github.com/boxheed/mqtt-fs-worker.git
+# Install as a global executable
+sudo npm install -g https://github.com/boxheed/job-worker.git
 ```
 
 ## Shared Drive Configuration
-The worker expects a shared volume to be mounted at a consistent path. In your docker-compose.yml, both the Controller and Worker must map to the same host path.
+The worker expects a shared volume to be mounted at a consistent path.
 
 ```yaml
 services:
-  mqtt-fs-worker:
+  mqtt-job-worker:
     image: node:20-slim
     restart: always
     volumes:
       - /opt/orchestrator/shared_data:/data # Shared drive mount
     environment:
       - MQTT_URL=mqtt://broker:1883
+      - MQTT_JOBS_DIR=/data/jobs
+      - MQTT_WORKSPACES_DIR=/tmp/workspaces
 ```
 
 ## Job Contract
 
-1. Request Payload (`jobs/pending`)
-The MQTT message acts as a trigger. It specifies the unique ID and the directory where the worker should look for the `job.json` definition.
+### 1. Request Payload (`jobs/pending`)
+The MQTT message specifies the unique Job ID. The worker resolves the source folder as `{MQTT_JOBS_DIR}/{id}`.
+
 ```JSON
 {
-  "id": "job_2026_01",
-  "workDir": "/data/active_jobs/job_2026_01"
+  "id": "job_2026_01"
 }
 ```
+*Note: You can optionally pass `steps` in the payload to override the `job.json` file.*
 
-2. Execution Behavior
-* Working Directory: The worker automatically cds into the workDir before executing steps.
-* Job Definition: The worker **strictly** expects a `job.json` file in the `workDir`. This file must contain a `steps` array.
-* Steps Example (`job.json`):
+### 2. Job Definition (`job.json`)
+The worker expects a `job.json` file in the source directory.
+
 ```json
 {
   "steps": [
     "npm install",
-    "npm run build",
-    "cp ./dist/output.zip /data/results/"
+    "npm run build"
   ]
 }
 ```
-* Logging: The worker creates individual log files for each step (e.g., `step_0.log`, `step_1.log`).
-* Manifest: A `result.json` file is created in the `workDir` summarizing the execution results and timing.
-* Cleanup: The worker does not delete files. It is the responsibility of the Controller to purge the workDir after processing the results.
 
-3. Response Payload (`jobs/results/{id}`)
+### 3. Output Structure
+After execution, the shared directory will contain a `results/` folder:
+- `results/step_0.log`, `results/step_1.log`: Real-time execution logs.
+- `results/result.json`: Final execution manifest.
+- `results/*`: Any files created or modified during the job.
+
+### 4. Response Payload (`jobs/results/{id}`)
 ```json
 {
   "id": "job_2026_01",
   "status": "success",
-  "manifestFile": "/data/active_jobs/job_2026_01/result.json",
-  "exitCode": 0
+  "exitCode": 0,
+  "manifestFile": "/data/jobs/job_2026_01/results/result.json"
 }
 ```
 
 ## Configuration
-
-The worker can be configured via environment variables or command-line arguments.
 
 | Argument | Environment Variable | Default | Description |
 | --- | --- | --- | --- |
 | `-u, --url` | `MQTT_URL` | `mqtt://localhost:1883` | MQTT Broker URL |
 | `-n, --username` | `MQTT_USERNAME` | - | MQTT Username |
 | `-p, --password` | `MQTT_PASSWORD` | - | MQTT Password |
-| `-i, --id` | `WORKER_ID` | `worker-01` | Unique Worker ID (Client ID) |
-| `-t, --topic` | - | `jobs/pending` | Subscription topic |
-| `--dry-run` | - | - | Run in dry-run mode using local `test-payload.json` |
+| `-i, --id` | `WORKER_ID` | `worker-01` | Unique Worker ID |
+| `-j, --jobs-dir` | `MQTT_JOBS_DIR` | `./jobs` | Root for job sources (Shared) |
+| `-w, --workspaces-dir` | `MQTT_WORKSPACES_DIR` | `./workspaces` | Root for execution (Local) |
+| `-t, --topic` | `MQTT_TOPIC` | `jobs/pending` | Subscription topic |
+| `--dry-run` | - | - | Run using local `test-payload.json` |
 
 ### Dry Run Mode
 
-The Dry Run mode allows you to test the shell environment and file system permissions without an MQTT broker.
-When the `--dry-run` flag is used, the worker looks for a `test-payload.json` file in the current directory.
-
-`test-payload.json` example:
+Allows testing the environment and logic without an MQTT broker.
+1. Create `test-payload.json`:
 ```json
 {
   "id": "dry-run-test",
-  "workDir": "./test-workdir",
-  "steps": [
-    "echo 'Testing environment'",
-    "ls -la"
-  ]
+  "steps": ["echo 'Testing environment'"]
 }
 ```
-
-Running dry run:
-```bash
-mqtt-fs-worker --dry-run
-```
-
-### Example usage:
-```bash
-mqtt-fs-worker --url mqtt://broker:1883 --id worker-01 --topic custom/jobs
-```
+2. Run: `mqtt-fs-worker --dry-run`
 
 ## License
 

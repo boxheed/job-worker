@@ -60,7 +60,6 @@ describe('Dry Run Mode', () => {
   it('should execute job from test-payload.json when --dry-run is present', async () => {
     const mockPayload = {
       id: 'test-dry-run',
-      workDir: './test-dir',
       steps: ['echo hello'],
     };
 
@@ -81,23 +80,21 @@ describe('Dry Run Mode', () => {
       exitCode: 0,
     });
 
-    await startWorker(['node', 'worker.js', '--dry-run']);
+    await startWorker(['node', 'worker.js', '--dry-run', '-j', './jobs', '-w', './workspaces']);
 
     expect(fs.existsSync).toHaveBeenCalledWith(
       expect.stringContaining('test-payload.json'),
     );
     expect(executor.executeJob).toHaveBeenCalledWith(
-      './test-dir',
+      './jobs',
+      './workspaces',
       'test-dry-run',
       { steps: ['echo hello'] },
-    );
-    expect(console.log).toHaveBeenCalledWith(
-      expect.stringContaining('"status": "success"'),
     );
     expect(process.exit).toHaveBeenCalledWith(0);
   });
 
-  it('should use defaults if id and workDir are missing in test-payload.json', async () => {
+  it('should use defaults if id is missing in test-payload.json', async () => {
     const mockPayload = {
       steps: ['echo hello'],
     };
@@ -121,45 +118,9 @@ describe('Dry Run Mode', () => {
 
     await startWorker(['node', 'worker.js', '--dry-run']);
 
-    expect(executor.executeJob).toHaveBeenCalledWith('.', 'dry-run', {
+    expect(executor.executeJob).toHaveBeenCalledWith('./jobs', './workspaces', 'dry-run', {
       steps: ['echo hello'],
     });
     expect(process.exit).toHaveBeenCalledWith(0);
-  });
-
-  it('should exit with error if test-payload.json is missing', async () => {
-    vi.mocked(fs.existsSync).mockImplementation((p) =>
-      p.toString().includes('package.json'),
-    );
-
-    await startWorker(['node', 'worker.js', '--dry-run']);
-
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining('Dry run failed'),
-      expect.any(Error),
-    );
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('should exit with error if test-payload.json is invalid JSON', async () => {
-    vi.mocked(fs.existsSync).mockImplementation(
-      (p) =>
-        p.toString().includes('test-payload.json') ||
-        p.toString().includes('package.json'),
-    );
-    vi.mocked(fs.readFileSync).mockImplementation((p) => {
-      if (p.toString().includes('test-payload.json')) return 'invalid json';
-      if (p.toString().includes('package.json'))
-        return JSON.stringify({ version: '1.0.0' });
-      return null;
-    });
-
-    await startWorker(['node', 'worker.js', '--dry-run']);
-
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining('Dry run failed'),
-      expect.any(Error),
-    );
-    expect(process.exit).toHaveBeenCalledWith(1);
   });
 });

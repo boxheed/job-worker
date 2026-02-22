@@ -59,6 +59,16 @@ export async function startWorker(argv = process.argv) {
       process.env.WORKER_ID || 'worker-01',
     )
     .option(
+      '-j, --jobs-dir <path>',
+      'Root directory for job sources (Shared Folder)',
+      process.env.MQTT_JOBS_DIR || './jobs',
+    )
+    .option(
+      '-w, --workspaces-dir <path>',
+      'Root directory for local execution workspaces',
+      process.env.MQTT_WORKSPACES_DIR || './workspaces',
+    )
+    .option(
       '-t, --topic <topic>',
       'Subscription topic',
       process.env.MQTT_TOPIC || 'jobs/pending',
@@ -70,7 +80,7 @@ export async function startWorker(argv = process.argv) {
 
   if (options.dryRun) {
     try {
-      await handleDryRun();
+      await handleDryRun(options.jobsDir, options.workspacesDir);
     } catch (err) {
       console.error('Dry run failed:', err);
       process.exit(1);
@@ -81,8 +91,12 @@ export async function startWorker(argv = process.argv) {
   const MQTT_URL = options.url;
   const WORKER_ID = options.id;
   const TOPIC = options.topic;
+  const JOBS_DIR = options.jobsDir;
+  const WORKSPACES_DIR = options.workspacesDir;
 
   console.log(`Starting worker ${WORKER_ID} connecting to ${MQTT_URL}...`);
+  console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
+  console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
 
   const connectOptions = {
     clientId: WORKER_ID,
@@ -129,24 +143,25 @@ export async function startWorker(argv = process.argv) {
         return;
       }
 
-      const { id, workDir } = payload;
-      if (!id || !workDir) {
-        console.error('Invalid payload: missing id or workDir', payload);
+      const { id } = payload;
+      if (!id) {
+        console.error('Invalid payload: missing id', payload);
         client.end(false, () => process.exit(1));
         return;
       }
 
-      console.log(`Received job ${id} in ${workDir}`);
+      console.log(`Received job ${id}`);
 
       try {
-        const result = await executeJob(workDir, id);
+        const result = await executeJob(JOBS_DIR, WORKSPACES_DIR, id, payload.steps ? { steps: payload.steps } : null);
         console.log(`Job ${id} finished with status ${result.status}`);
 
+        const resultPath = path.join(JOBS_DIR, id, 'results');
         const resultPayload = createResultPayload(
           id,
           result.status,
           result.exitCode,
-          workDir,
+          resultPath,
         );
 
         client.publish(
@@ -168,7 +183,8 @@ export async function startWorker(argv = process.argv) {
         );
       } catch (err) {
         console.error(`Error executing job ${id}:`, err);
-        const errorPayload = createResultPayload(id, 'failed', 1, workDir);
+        const resultPath = path.join(JOBS_DIR, id, 'results');
+        const errorPayload = createResultPayload(id, 'failed', 1, resultPath);
         errorPayload.error = err.message;
 
         client.publish(
@@ -189,7 +205,7 @@ export async function startWorker(argv = process.argv) {
 /**
  * Handles dry-run mode.
  */
-async function handleDryRun() {
+async function handleDryRun(jobsDir, workspacesDir) {
   console.log('Dry run mode enabled. Reading test-payload.json...');
   const payloadPath = path.resolve('test-payload.json');
   if (!fs.existsSync(payloadPath)) {
@@ -203,16 +219,17 @@ async function handleDryRun() {
     throw new Error(`Failed to parse test-payload.json: ${err.message}`);
   }
 
-  const { id = 'dry-run', workDir = '.', steps } = payload;
-  console.log(`Executing dry run for job ${id} in ${workDir}`);
+  const { id = 'dry-run', steps } = payload;
+  console.log(`Executing dry run for job ${id}`);
 
-  const result = await executeJob(workDir, id, steps ? { steps } : null);
+  const result = await executeJob(jobsDir, workspacesDir, id, steps ? { steps } : null);
 
+  const resultPath = path.join(jobsDir, id, 'results');
   const resultPayload = createResultPayload(
     id,
     result.status,
     result.exitCode,
-    workDir,
+    resultPath,
   );
 
   console.log('Dry run results:');
