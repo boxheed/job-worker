@@ -18,6 +18,7 @@ describe('Worker', () => {
     vi.stubEnv('MQTT_TOPIC', 'test/jobs');
     vi.stubEnv('MQTT_JOBS_DIR', './test-jobs');
     vi.stubEnv('MQTT_WORKSPACES_DIR', './test-workspaces');
+    vi.stubEnv('MQTT_CLEAN', 'false');
 
     mockClient = {
       on: vi.fn(),
@@ -55,6 +56,7 @@ describe('Worker', () => {
       clean: false,
       username: 'test-user',
       password: 'test-pass',
+      protocolVersion: 5,
     });
 
     const connectHandler = mockClient.on.mock.calls.find(
@@ -63,7 +65,7 @@ describe('Worker', () => {
     connectHandler();
     expect(mockClient.subscribe).toHaveBeenCalledWith(
       'test/jobs',
-      { qos: 1 },
+      { qos: 1, properties: { customHandleAcks: true } },
       expect.any(Function),
     );
   });
@@ -89,6 +91,7 @@ describe('Worker', () => {
       clean: false,
       username: 'test-user',
       password: 'test-pass',
+      protocolVersion: 5,
     });
 
     const connectHandler = mockClient.on.mock.calls.find(
@@ -97,9 +100,18 @@ describe('Worker', () => {
     connectHandler();
     expect(mockClient.subscribe).toHaveBeenCalledWith(
       'cli/topic',
-      { qos: 1 },
+      { qos: 1, properties: { customHandleAcks: true } },
       expect.any(Function),
     );
+  });
+
+  it('should support clean session option', async () => {
+    await startWorker(['node', 'worker.js', '--clean']);
+
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      clean: true,
+      protocolVersion: 5
+    }));
   });
 
   it('should handle message, execute job, and exit', async () => {
@@ -117,8 +129,10 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-123' };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)));
+    const mockAck = vi.fn();
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false, ack: mockAck });
 
+    await vi.waitFor(() => expect(mockAck).toHaveBeenCalled());
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
     expect(executeJob).toHaveBeenCalledWith('./test-jobs', './test-workspaces', 'job-123', null);
@@ -133,6 +147,26 @@ describe('Worker', () => {
     expect(mockClient.end).toHaveBeenCalled();
   });
 
+  it('should clear retained message if received', async () => {
+    vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
+    await startWorker(['node', 'worker.js']);
+
+    const messageHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'message',
+    )[1];
+    const payload = { id: 'job-retained' };
+    
+    // Simulate retained message
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: true, ack: vi.fn() });
+
+    await vi.waitFor(() => expect(mockClient.publish).toHaveBeenCalledWith(
+      'test/jobs',
+      '',
+      expect.objectContaining({ retain: true, qos: 1 }),
+      expect.any(Function)
+    ));
+  });
+
   it('should handle message with steps and pass to executeJob', async () => {
     vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
     await startWorker(['node', 'worker.js']);
@@ -141,7 +175,7 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-steps', steps: ['echo hello'] };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)));
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false, ack: vi.fn() });
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
@@ -156,7 +190,7 @@ describe('Worker', () => {
     )[1];
 
     const invalidPayload = { some: 'other field' };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(invalidPayload)));
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(invalidPayload)), { retain: false, ack: vi.fn() });
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
     expect(mockClient.unsubscribe).toHaveBeenCalled();

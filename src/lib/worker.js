@@ -69,6 +69,11 @@ export async function startWorker(argv = process.argv) {
       'Subscription topic',
       process.env.MQTT_TOPIC || 'jobs/pending',
     )
+    .option(
+      '--clean',
+      'Use a clean MQTT session (do not queue messages while offline)',
+      process.env.MQTT_CLEAN === 'true',
+    )
     .option('--dry-run', 'Run in dry-run mode using test-payload.json')
     .parse(argv);
 
@@ -93,10 +98,12 @@ export async function startWorker(argv = process.argv) {
   console.log(`Starting worker ${WORKER_ID} connecting to ${MQTT_URL}...`);
   console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
   console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
+  console.log(`MQTT Session: ${options.clean ? 'Clean' : 'Persistent'}`);
 
   const connectOptions = {
     clientId: WORKER_ID,
-    clean: false,
+    clean: options.clean,
+    protocolVersion: 5,
   };
 
   if (options.username) connectOptions.username = options.username;
@@ -107,7 +114,7 @@ export async function startWorker(argv = process.argv) {
 
   client.on('connect', () => {
     console.log('Connected to MQTT broker');
-    client.subscribe(TOPIC, { qos: 1 }, (err) => {
+    client.subscribe(TOPIC, { qos: 1, properties: { customHandleAcks: true } }, (err) => {
       if (err) {
         console.error(`Failed to subscribe to ${TOPIC}:`, err);
         process.exit(1);
@@ -120,10 +127,22 @@ export async function startWorker(argv = process.argv) {
     console.error('MQTT error:', err);
   });
 
-  client.on('message', async (topic, message) => {
+  client.on('message', async (topic, message, packet) => {
     if (topic === TOPIC) {
       if (isProcessing) return;
       isProcessing = true;
+
+      // Manually acknowledge this message only
+      if (packet && typeof packet.ack === 'function') {
+        packet.ack();
+      }
+
+      // If it's a retained message, clear it from the broker immediately
+      if (packet.retain) {
+        client.publish(topic, '', { qos: 1, retain: true }, (err) => {
+          if (err) console.error('Failed to clear retained message:', err);
+        });
+      }
 
       // Immediately unsubscribe to stop receiving more messages
       client.unsubscribe(TOPIC, (err) => {

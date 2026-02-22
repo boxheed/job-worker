@@ -86,7 +86,23 @@ After execution, the shared directory will contain a `results/` folder:
 | `-j, --jobs-dir` | `MQTT_JOBS_DIR` | `./jobs` | Root for job sources (Shared) |
 | `-w, --workspaces-dir` | `MQTT_WORKSPACES_DIR` | `./workspaces` | Root for execution (Local) |
 | `-t, --topic` | `MQTT_TOPIC` | `jobs/pending` | Subscription topic |
+| `--clean` | `MQTT_CLEAN` | `false` | Use a clean MQTT session |
 | `--dry-run` | - | - | Run using local `test-payload.json` |
+
+### Reliability & Scaling
+
+#### Clean vs. Persistent Sessions
+- **Persistent (Default):** The broker queues messages while the worker is offline. **Warning:** Since this is a one-shot worker, a persistent session may cause the worker to receive multiple queued messages at once, but only process the first one.
+- **Clean (`--clean`):** The worker only receives messages that arrive while it is connected. This is recommended for one-shot workers unless you specifically need offline queuing for a single worker.
+
+#### Shared Subscriptions (Recommended for Scaling)
+To scale one-shot workers without losing messages, use **MQTT 5.0 Shared Subscriptions**. This ensures the broker only sends **one message to one worker instance**.
+
+Example topic: `$share/worker-group/jobs/pending`
+
+```bash
+mqtt-fs-worker --topic "$share/worker-group/jobs/pending" --clean
+```
 
 ### Dry Run Mode
 
