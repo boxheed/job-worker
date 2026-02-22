@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.2](https://github.com/boxheed/job-worker/compare/v0.1.1...v0.1.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* restore package.json structure ([3eb14e4](https://github.com/boxheed/job-worker/commit/3eb14e458d88ddae912fc0ce6d385990f897f9fe))
+
 ### 0.1.1 (2026-02-21)
 
 
