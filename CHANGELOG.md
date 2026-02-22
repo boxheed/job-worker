@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.6](https://github.com/boxheed/job-worker/compare/v0.1.5...v0.1.6) (2026-02-22)
+
+
+### Bug Fixes
+
+* removed some of the scripts ([af86028](https://github.com/boxheed/job-worker/commit/af86028abc76037cfa2afaec2fc0a9fdb54be98d))
+* removed some of the scripts ([00da307](https://github.com/boxheed/job-worker/commit/00da3078ff76ac67e58c967423a83de6ea8b02fe))
+
 ### [0.1.5](https://github.com/boxheed/job-worker/compare/v0.1.4...v0.1.5) (2026-02-22)
 
 
