@@ -13,19 +13,15 @@ const pkg = JSON.parse(
  * @param {string} id - The job ID.
  * @param {string} status - Job status.
  * @param {number} exitCode - Exit code.
- * @param {string} workDir - Working directory.
  * @returns {object}
  */
-function createResultPayload(id, status, exitCode, workDir) {
-  const payload = {
+function createResultPayload(id, status, exitCode) {
+  return {
     id,
     status,
     exitCode,
+    manifestFile: 'results/result.json',
   };
-  if (workDir) {
-    payload.manifestFile = path.join(path.resolve(workDir), 'result.json');
-  }
-  return payload;
 }
 
 /**
@@ -156,12 +152,10 @@ export async function startWorker(argv = process.argv) {
         const result = await executeJob(JOBS_DIR, WORKSPACES_DIR, id, payload.steps ? { steps: payload.steps } : null);
         console.log(`Job ${id} finished with status ${result.status}`);
 
-        const resultPath = path.join(JOBS_DIR, id, 'results');
         const resultPayload = createResultPayload(
           id,
           result.status,
           result.exitCode,
-          resultPath,
         );
 
         client.publish(
@@ -183,8 +177,7 @@ export async function startWorker(argv = process.argv) {
         );
       } catch (err) {
         console.error(`Error executing job ${id}:`, err);
-        const resultPath = path.join(JOBS_DIR, id, 'results');
-        const errorPayload = createResultPayload(id, 'failed', 1, resultPath);
+        const errorPayload = createResultPayload(id, 'failed', 1);
         errorPayload.error = err.message;
 
         client.publish(
@@ -224,12 +217,10 @@ async function handleDryRun(jobsDir, workspacesDir) {
 
   const result = await executeJob(jobsDir, workspacesDir, id, steps ? { steps } : null);
 
-  const resultPath = path.join(jobsDir, id, 'results');
   const resultPayload = createResultPayload(
     id,
     result.status,
     result.exitCode,
-    resultPath,
   );
 
   console.log('Dry run results:');

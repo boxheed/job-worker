@@ -123,10 +123,9 @@ describe('Worker', () => {
 
     expect(executeJob).toHaveBeenCalledWith('./test-jobs', './test-workspaces', 'job-123', null);
     
-    const expectedResultPath = path.join('./test-jobs', 'job-123', 'results');
     expect(mockClient.publish).toHaveBeenCalledWith(
       'jobs/results/job-123',
-      expect.stringContaining(expectedResultPath),
+      expect.stringContaining('"manifestFile":"results/result.json"'),
       { qos: 1 },
       expect.any(Function),
     );

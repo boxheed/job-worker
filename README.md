@@ -71,7 +71,7 @@ After execution, the shared directory will contain a `results/` folder:
   "id": "job_2026_01",
   "status": "success",
   "exitCode": 0,
-  "manifestFile": "/data/jobs/job_2026_01/results/result.json"
+  "manifestFile": "results/result.json"
 }
 ```
 
