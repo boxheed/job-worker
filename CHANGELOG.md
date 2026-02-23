@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.11](https://github.com/boxheed/job-worker/compare/v0.1.10...v0.1.11) (2026-02-23)
+
+
+### Bug Fixes
+
+* revert to MQTT 3.1.1 for stability and fix connection issues ([e5d0dae](https://github.com/boxheed/job-worker/commit/e5d0daef2c6c0f21d9ddac578357cafe9e3e9bf6))
+
 ### [0.1.10](https://github.com/boxheed/job-worker/compare/v0.1.9...v0.1.10) (2026-02-22)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "mqtt-job-worker",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "CLI package for job worker",
   "type": "module",
   "main": "src/index.js",
