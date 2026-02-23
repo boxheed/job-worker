@@ -9,7 +9,7 @@ import { spawn } from 'node:child_process';
  * @returns {Promise<number>} Resolves with the exit code.
  */
 async function executeStep(command, logPath, cwd) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const logStream = fs.createWriteStream(logPath);
     const child = spawn(command, {
       shell: true,
@@ -71,7 +71,12 @@ async function executeStep(command, logPath, cwd) {
  * @param {object} [overrideConfig] - Optional job configuration.
  * @returns {Promise<{status: string, exitCode: number, manifest: object}>}
  */
-export async function executeJob(jobsRoot, workspacesRoot, id, overrideConfig = null) {
+export async function executeJob(
+  jobsRoot,
+  workspacesRoot,
+  id,
+  overrideConfig = null,
+) {
   const originalCwd = process.cwd();
   const startTime = new Date().toISOString();
   const manifest = {
@@ -172,14 +177,13 @@ export async function executeJob(jobsRoot, workspacesRoot, id, overrideConfig = 
     for (const entry of workspaceEntries) {
       const src = path.join(workspaceDir, entry);
       const dest = path.join(resultsDir, entry);
-      
+
       // Don't overwrite job.json if it was a source file, unless you want that.
       // For now, copy everything new/modified.
       if (!fs.existsSync(dest)) {
         fs.cpSync(src, dest, { recursive: true });
       }
     }
-
   } catch (err) {
     manifest.status = 'failed';
     overallExitCode = overallExitCode || 1;
@@ -203,7 +207,7 @@ export async function executeJob(jobsRoot, workspacesRoot, id, overrideConfig = 
     // Cleanup Workspace
     try {
       if (workspaceDir && fs.existsSync(workspaceDir)) {
-         fs.rmSync(workspaceDir, { recursive: true, force: true });
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
       }
     } catch (cleanupErr) {
       console.error('Failed to cleanup workspace:', cleanupErr);

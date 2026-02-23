@@ -80,7 +80,15 @@ describe('Dry Run Mode', () => {
       exitCode: 0,
     });
 
-    await startWorker(['node', 'worker.js', '--dry-run', '-j', './jobs', '-w', './workspaces']);
+    await startWorker([
+      'node',
+      'worker.js',
+      '--dry-run',
+      '-j',
+      './jobs',
+      '-w',
+      './workspaces',
+    ]);
 
     expect(fs.existsSync).toHaveBeenCalledWith(
       expect.stringContaining('test-payload.json'),
@@ -118,9 +126,14 @@ describe('Dry Run Mode', () => {
 
     await startWorker(['node', 'worker.js', '--dry-run']);
 
-    expect(executor.executeJob).toHaveBeenCalledWith('./jobs', './workspaces', 'dry-run', {
-      steps: ['echo hello'],
-    });
+    expect(executor.executeJob).toHaveBeenCalledWith(
+      './jobs',
+      './workspaces',
+      'dry-run',
+      {
+        steps: ['echo hello'],
+      },
+    );
     expect(process.exit).toHaveBeenCalledWith(0);
   });
 });

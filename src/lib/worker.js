@@ -70,6 +70,11 @@ export async function startWorker(argv = process.argv) {
       process.env.MQTT_TOPIC || 'jobs/pending',
     )
     .option(
+      '-v, --protocol-version <version>',
+      'MQTT Protocol Version (4 for 3.1.1, 5 for 5.0)',
+      process.env.MQTT_PROTOCOL_VERSION || '5',
+    )
+    .option(
       '--clean',
       'Use a clean MQTT session (do not queue messages while offline)',
       process.env.MQTT_CLEAN === 'true',
@@ -94,22 +99,44 @@ export async function startWorker(argv = process.argv) {
   const TOPIC = options.topic;
   const JOBS_DIR = options.jobsDir;
   const WORKSPACES_DIR = options.workspacesDir;
+  const PROTOCOL_VERSION = parseInt(options.protocolVersion, 10);
 
   console.log(`Starting worker ${WORKER_ID} connecting to ${MQTT_URL}...`);
   console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
   console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
   console.log(`MQTT Session: ${options.clean ? 'Clean' : 'Persistent'}`);
+  console.log(`MQTT Protocol Version: ${PROTOCOL_VERSION}`);
 
   const connectOptions = {
     clientId: WORKER_ID,
     clean: options.clean,
+    protocolVersion: PROTOCOL_VERSION,
   };
+
+  if (!options.clean && PROTOCOL_VERSION === 5) {
+    connectOptions.properties = {
+      sessionExpiryInterval: 4294967295, // Persistent session (indefinite)
+      receiveMaximum: 1, // Only receive one job at a time
+    };
+  }
 
   if (options.username) connectOptions.username = options.username;
   if (options.password) connectOptions.password = options.password;
 
   const client = mqtt.connect(MQTT_URL, connectOptions);
   let isProcessing = false;
+  const pendingAcks = new Map();
+
+  // Override handleMessage to capture the acknowledgement callback.
+  // This allows us to delay the PUBACK until the job is fully processed.
+  const originalHandleMessage = client.handleMessage.bind(client);
+  client.handleMessage = (packet, callback) => {
+    if (packet.cmd === 'publish' && packet.qos === 1) {
+      pendingAcks.set(packet.messageId, callback);
+    } else {
+      originalHandleMessage(packet, callback);
+    }
+  };
 
   client.on('connect', () => {
     console.log('Connected to MQTT broker');
@@ -138,11 +165,6 @@ export async function startWorker(argv = process.argv) {
         });
       }
 
-      // Immediately unsubscribe to stop receiving more messages
-      client.unsubscribe(TOPIC, (err) => {
-        if (err) console.error('Failed to unsubscribe:', err);
-      });
-
       let payload;
       try {
         payload = JSON.parse(message.toString());
@@ -162,7 +184,12 @@ export async function startWorker(argv = process.argv) {
       console.log(`Received job ${id}`);
 
       try {
-        const result = await executeJob(JOBS_DIR, WORKSPACES_DIR, id, payload.steps ? { steps: payload.steps } : null);
+        const result = await executeJob(
+          JOBS_DIR,
+          WORKSPACES_DIR,
+          id,
+          payload.steps ? { steps: payload.steps } : null,
+        );
         console.log(`Job ${id} finished with status ${result.status}`);
 
         const resultPayload = createResultPayload(
@@ -182,6 +209,13 @@ export async function startWorker(argv = process.argv) {
               console.log(`Result for job ${id} published`);
             }
 
+            const ack = pendingAcks.get(packet.messageId);
+            if (ack) {
+              console.log(`Acknowledging job message ${packet.messageId}...`);
+              ack();
+              pendingAcks.delete(packet.messageId);
+            }
+
             console.log('Disconnecting and exiting...');
             client.end(false, () => {
               process.exit(0);
@@ -198,6 +232,11 @@ export async function startWorker(argv = process.argv) {
           JSON.stringify(errorPayload),
           { qos: 1 },
           () => {
+            const ack = pendingAcks.get(packet.messageId);
+            if (ack) {
+              ack();
+              pendingAcks.delete(packet.messageId);
+            }
             client.end(false, () => process.exit(1));
           },
         );
@@ -228,13 +267,14 @@ async function handleDryRun(jobsDir, workspacesDir) {
   const { id = 'dry-run', steps } = payload;
   console.log(`Executing dry run for job ${id}`);
 
-  const result = await executeJob(jobsDir, workspacesDir, id, steps ? { steps } : null);
-
-  const resultPayload = createResultPayload(
+  const result = await executeJob(
+    jobsDir,
+    workspacesDir,
     id,
-    result.status,
-    result.exitCode,
+    steps ? { steps } : null,
   );
+
+  const resultPayload = createResultPayload(id, result.status, result.exitCode);
 
   console.log('Dry run results:');
   console.log(JSON.stringify(resultPayload, null, 2));
