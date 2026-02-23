@@ -10,7 +10,9 @@ describe('executeJob (Managed Workspace)', () => {
 
   beforeEach(() => {
     jobsRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'job-worker-jobs-'));
-    workspacesRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'job-worker-workspaces-'));
+    workspacesRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'job-worker-workspaces-'),
+    );
   });
 
   afterEach(() => {
@@ -28,7 +30,10 @@ describe('executeJob (Managed Workspace)', () => {
     const jobConfig = {
       steps: ['cat input.txt', 'pwd'],
     };
-    fs.writeFileSync(path.join(sourceDir, 'job.json'), JSON.stringify(jobConfig));
+    fs.writeFileSync(
+      path.join(sourceDir, 'job.json'),
+      JSON.stringify(jobConfig),
+    );
 
     const result = await executeJob(jobsRoot, workspacesRoot, jobId);
 
@@ -48,7 +53,9 @@ describe('executeJob (Managed Workspace)', () => {
 
     // Verify synced artifacts
     expect(fs.existsSync(path.join(resultsDir, 'input.txt'))).toBe(true);
-    expect(fs.readFileSync(path.join(resultsDir, 'input.txt'), 'utf8')).toContain('hello world');
+    expect(
+      fs.readFileSync(path.join(resultsDir, 'input.txt'), 'utf8'),
+    ).toContain('hello world');
 
     // Verify workspace is cleaned up
     expect(fs.existsSync(path.join(workspacesRoot, jobId))).toBe(false);
@@ -65,7 +72,9 @@ describe('executeJob (Managed Workspace)', () => {
 
     const resultsDir = path.join(sourceDir, 'results');
     expect(fs.existsSync(path.join(resultsDir, 'result.json'))).toBe(true);
-    const manifest = JSON.parse(fs.readFileSync(path.join(resultsDir, 'result.json'), 'utf8'));
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(resultsDir, 'result.json'), 'utf8'),
+    );
     expect(manifest.error).toContain('Job definition not found');
   });
 
@@ -78,7 +87,12 @@ describe('executeJob (Managed Workspace)', () => {
       steps: ['echo "override"'],
     };
 
-    const result = await executeJob(jobsRoot, workspacesRoot, jobId, overrideConfig);
+    const result = await executeJob(
+      jobsRoot,
+      workspacesRoot,
+      jobId,
+      overrideConfig,
+    );
 
     expect(result.status).toBe('success');
     const resultsDir = path.join(sourceDir, 'results');

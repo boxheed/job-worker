@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import mqtt from 'mqtt';
-import path from 'node:path';
 import { executeJob } from '../src/lib/executor.js';
 import { startWorker, setupSignalHandlers } from '../src/lib/worker.js';
 
@@ -34,6 +33,9 @@ describe('Worker', () => {
       end: vi.fn((force, cb) => {
         if (cb) cb();
       }),
+      handleMessage: vi.fn((packet, cb) => {
+        if (cb) cb();
+      }),
     };
     mqtt.connect.mockClear();
     vi.clearAllMocks();
@@ -54,6 +56,11 @@ describe('Worker', () => {
     expect(mqtt.connect).toHaveBeenCalledWith('mqtt://test-broker:1883', {
       clientId: 'test-worker',
       clean: false,
+      protocolVersion: 5,
+      properties: {
+        sessionExpiryInterval: 4294967295,
+        receiveMaximum: 1,
+      },
       username: 'test-user',
       password: 'test-pass',
     });
@@ -82,12 +89,15 @@ describe('Worker', () => {
       '-j',
       './cli-jobs',
       '-w',
-      './cli-workspaces'
+      './cli-workspaces',
+      '-v',
+      '4',
     ]);
 
     expect(mqtt.connect).toHaveBeenCalledWith('mqtt://cli-broker:1883', {
       clientId: 'cli-worker',
       clean: false,
+      protocolVersion: 4,
       username: 'test-user',
       password: 'test-pass',
     });
@@ -106,9 +116,12 @@ describe('Worker', () => {
   it('should support clean session option', async () => {
     await startWorker(['node', 'worker.js', '--clean']);
 
-    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
-      clean: true
-    }));
+    expect(mqtt.connect).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        clean: true,
+      }),
+    );
   });
 
   it('should handle message, execute job, and exit', async () => {
@@ -126,12 +139,19 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-123' };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false });
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), {
+      retain: false,
+    });
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
-    expect(executeJob).toHaveBeenCalledWith('./test-jobs', './test-workspaces', 'job-123', null);
-    
+    expect(executeJob).toHaveBeenCalledWith(
+      './test-jobs',
+      './test-workspaces',
+      'job-123',
+      null,
+    );
+
     expect(mockClient.publish).toHaveBeenCalledWith(
       'jobs/results/job-123',
       expect.stringContaining('"manifestFile":"results/result.json"'),
@@ -150,16 +170,20 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-retained' };
-    
-    // Simulate retained message
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: true });
 
-    await vi.waitFor(() => expect(mockClient.publish).toHaveBeenCalledWith(
-      'test/jobs',
-      '',
-      expect.objectContaining({ retain: true, qos: 1 }),
-      expect.any(Function)
-    ));
+    // Simulate retained message
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), {
+      retain: true,
+    });
+
+    await vi.waitFor(() =>
+      expect(mockClient.publish).toHaveBeenCalledWith(
+        'test/jobs',
+        '',
+        expect.objectContaining({ retain: true, qos: 1 }),
+        expect.any(Function),
+      ),
+    );
   });
 
   it('should handle message with steps and pass to executeJob', async () => {
@@ -170,11 +194,18 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-steps', steps: ['echo hello'] };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false });
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), {
+      retain: false,
+    });
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
-    expect(executeJob).toHaveBeenCalledWith('./test-jobs', './test-workspaces', 'job-steps', { steps: ['echo hello'] });
+    expect(executeJob).toHaveBeenCalledWith(
+      './test-jobs',
+      './test-workspaces',
+      'job-steps',
+      { steps: ['echo hello'] },
+    );
   });
 
   it('should exit if receiving payload with missing id', async () => {
@@ -185,11 +216,54 @@ describe('Worker', () => {
     )[1];
 
     const invalidPayload = { some: 'other field' };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(invalidPayload)), { retain: false });
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(invalidPayload)), {
+      retain: false,
+    });
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
-    expect(mockClient.unsubscribe).toHaveBeenCalled();
+    expect(mockClient.unsubscribe).not.toHaveBeenCalled();
     expect(mockClient.end).toHaveBeenCalled();
+  });
+
+  it('should delay acknowledgement until job is finished', async () => {
+    vi.mocked(executeJob).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ status: 'success', exitCode: 0 }), 50);
+        }),
+    );
+
+    await startWorker(['node', 'worker.js']);
+
+    const messageHandler = mockClient.on.mock.calls.find(
+      (c) => c[0] === 'message',
+    )[1];
+
+    const packet = {
+      cmd: 'publish',
+      qos: 1,
+      topic: 'test/jobs',
+      messageId: 123,
+    };
+    const ackCallback = vi.fn();
+
+    // Simulate handleMessage being called by mqtt.js
+    mockClient.handleMessage(packet, ackCallback);
+
+    // Simulate message event being called by mqtt.js
+    const payload = { id: 'job-delayed' };
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), packet);
+
+    // Ack should not be called yet
+    expect(ackCallback).not.toHaveBeenCalled();
+
+    // Wait for job to finish
+    await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0), {
+      timeout: 1000,
+    });
+
+    // Now ack should have been called
+    expect(ackCallback).toHaveBeenCalled();
   });
 
   describe('Signal Handling', () => {
