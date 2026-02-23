@@ -125,10 +125,12 @@ export async function startWorker(argv = process.argv) {
 
   const client = mqtt.connect(MQTT_URL, connectOptions);
   let isProcessing = false;
+  /*
   const pendingAcks = new Map();
 
   // Override handleMessage to capture the acknowledgement callback.
   // This allows us to delay the PUBACK until the job is fully processed.
+  
   const originalHandleMessage = client.handleMessage.bind(client);
   client.handleMessage = (packet, callback) => {
     if (packet.cmd === 'publish' && packet.qos === 1) {
@@ -137,6 +139,7 @@ export async function startWorker(argv = process.argv) {
       originalHandleMessage(packet, callback);
     }
   };
+  */
 
   client.on('connect', () => {
     console.log('Connected to MQTT broker');
@@ -208,14 +211,14 @@ export async function startWorker(argv = process.argv) {
             } else {
               console.log(`Result for job ${id} published`);
             }
-
+/*
             const ack = pendingAcks.get(packet.messageId);
             if (ack) {
               console.log(`Acknowledging job message ${packet.messageId}...`);
               ack();
               pendingAcks.delete(packet.messageId);
             }
-
+*/
             console.log('Disconnecting and exiting...');
             client.end(false, () => {
               process.exit(0);
@@ -232,11 +235,13 @@ export async function startWorker(argv = process.argv) {
           JSON.stringify(errorPayload),
           { qos: 1 },
           () => {
+            /*
             const ack = pendingAcks.get(packet.messageId);
             if (ack) {
               ack();
               pendingAcks.delete(packet.messageId);
             }
+              */
             client.end(false, () => process.exit(1));
           },
         );
