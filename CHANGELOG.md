@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.12](https://github.com/boxheed/job-worker/compare/v0.1.11...v0.1.12) (2026-02-23)
+
+
+### Bug Fixes
+
+* enable MQTT persistent sessions and guaranteed delivery ([917a6de](https://github.com/boxheed/job-worker/commit/917a6decc949267f2a899d7797b15c37b2915aeb))
+
 ### [0.1.11](https://github.com/boxheed/job-worker/compare/v0.1.10...v0.1.11) (2026-02-23)
 
 
