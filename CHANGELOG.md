@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.13](https://github.com/boxheed/job-worker/compare/v0.1.12...v0.1.13) (2026-02-23)
+
+
+### Bug Fixes
+
+* removed ack code ([cbb8471](https://github.com/boxheed/job-worker/commit/cbb8471be4a016e19d955eff4d172191e8e80e6a))
+
 ### [0.1.12](https://github.com/boxheed/job-worker/compare/v0.1.11...v0.1.12) (2026-02-23)
 
 
