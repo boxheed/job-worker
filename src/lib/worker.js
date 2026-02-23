@@ -103,7 +103,6 @@ export async function startWorker(argv = process.argv) {
   const connectOptions = {
     clientId: WORKER_ID,
     clean: options.clean,
-    protocolVersion: 5,
   };
 
   if (options.username) connectOptions.username = options.username;
@@ -114,7 +113,7 @@ export async function startWorker(argv = process.argv) {
 
   client.on('connect', () => {
     console.log('Connected to MQTT broker');
-    client.subscribe(TOPIC, { qos: 1, properties: { customHandleAcks: true } }, (err) => {
+    client.subscribe(TOPIC, { qos: 1 }, (err) => {
       if (err) {
         console.error(`Failed to subscribe to ${TOPIC}:`, err);
         process.exit(1);
@@ -131,11 +130,6 @@ export async function startWorker(argv = process.argv) {
     if (topic === TOPIC) {
       if (isProcessing) return;
       isProcessing = true;
-
-      // Manually acknowledge this message only
-      if (packet && typeof packet.ack === 'function') {
-        packet.ack();
-      }
 
       // If it's a retained message, clear it from the broker immediately
       if (packet.retain) {

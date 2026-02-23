@@ -56,7 +56,6 @@ describe('Worker', () => {
       clean: false,
       username: 'test-user',
       password: 'test-pass',
-      protocolVersion: 5,
     });
 
     const connectHandler = mockClient.on.mock.calls.find(
@@ -65,7 +64,7 @@ describe('Worker', () => {
     connectHandler();
     expect(mockClient.subscribe).toHaveBeenCalledWith(
       'test/jobs',
-      { qos: 1, properties: { customHandleAcks: true } },
+      { qos: 1 },
       expect.any(Function),
     );
   });
@@ -91,7 +90,6 @@ describe('Worker', () => {
       clean: false,
       username: 'test-user',
       password: 'test-pass',
-      protocolVersion: 5,
     });
 
     const connectHandler = mockClient.on.mock.calls.find(
@@ -100,7 +98,7 @@ describe('Worker', () => {
     connectHandler();
     expect(mockClient.subscribe).toHaveBeenCalledWith(
       'cli/topic',
-      { qos: 1, properties: { customHandleAcks: true } },
+      { qos: 1 },
       expect.any(Function),
     );
   });
@@ -109,8 +107,7 @@ describe('Worker', () => {
     await startWorker(['node', 'worker.js', '--clean']);
 
     expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
-      clean: true,
-      protocolVersion: 5
+      clean: true
     }));
   });
 
@@ -129,10 +126,8 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-123' };
-    const mockAck = vi.fn();
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false, ack: mockAck });
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false });
 
-    await vi.waitFor(() => expect(mockAck).toHaveBeenCalled());
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
     expect(executeJob).toHaveBeenCalledWith('./test-jobs', './test-workspaces', 'job-123', null);
@@ -157,7 +152,7 @@ describe('Worker', () => {
     const payload = { id: 'job-retained' };
     
     // Simulate retained message
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: true, ack: vi.fn() });
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: true });
 
     await vi.waitFor(() => expect(mockClient.publish).toHaveBeenCalledWith(
       'test/jobs',
@@ -175,7 +170,7 @@ describe('Worker', () => {
       (c) => c[0] === 'message',
     )[1];
     const payload = { id: 'job-steps', steps: ['echo hello'] };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false, ack: vi.fn() });
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(payload)), { retain: false });
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(0));
 
@@ -190,7 +185,7 @@ describe('Worker', () => {
     )[1];
 
     const invalidPayload = { some: 'other field' };
-    messageHandler('test/jobs', Buffer.from(JSON.stringify(invalidPayload)), { retain: false, ack: vi.fn() });
+    messageHandler('test/jobs', Buffer.from(JSON.stringify(invalidPayload)), { retain: false });
 
     await vi.waitFor(() => expect(process.exit).toHaveBeenCalledWith(1));
     expect(mockClient.unsubscribe).toHaveBeenCalled();
