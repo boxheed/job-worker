@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.1](https://github.com/boxheed/job-worker/compare/v0.3.0...v0.3.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* rename subject parameter to input-subject and update tests/docs ([94a57b6](https://github.com/boxheed/job-worker/commit/94a57b63d6a0485787ed7c297dc430680a33211e))
+
 ## [0.3.0](https://github.com/boxheed/job-worker/compare/v0.2.2...v0.3.0) (2026-02-27)
 
 
