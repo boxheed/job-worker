@@ -87,7 +87,8 @@ After execution, the shared directory will contain a `results/` folder:
 | `-j, --jobs-dir` | `NATS_JOBS_DIR` | `./jobs` | Root for job sources (Shared) |
 | `-w, --workspaces-dir` | `NATS_WORKSPACES_DIR` | `./workspaces` | Root for execution (Local) |
 | `-s, --stream` | `NATS_STREAM` | `JOBS` | JetStream Stream Name |
-| `-k, --input-subject` | `NATS_INPUT_SUBJECT` | `jobs.pending` | NATS Subject |
+| `-k, --input-subject` | `NATS_INPUT_SUBJECT` | `jobs.pending` | NATS Subject to consume from |
+| `-r, --output-subject` | `NATS_OUTPUT_SUBJECT` | `jobs.results` | NATS Subject to publish results to |
 | `--dry-run` | - | - | Run using local `test-payload.json` |
 
 ### Reliability & Scaling

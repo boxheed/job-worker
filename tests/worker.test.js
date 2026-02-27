@@ -32,6 +32,7 @@ describe('Worker', () => {
     vi.stubEnv('NATS_PASSWORD', 'test-pass');
     vi.stubEnv('NATS_STREAM', 'TEST_STREAM');
     vi.stubEnv('NATS_INPUT_SUBJECT', 'test.jobs');
+    vi.stubEnv('NATS_OUTPUT_SUBJECT', 'test.results');
     vi.stubEnv('NATS_JOBS_DIR', './test-jobs');
     vi.stubEnv('NATS_WORKSPACES_DIR', './test-workspaces');
 
@@ -187,7 +188,7 @@ describe('Worker', () => {
     );
 
     expect(mockNC.publish).toHaveBeenCalledWith(
-      'jobs.results.job-123',
+      'test.results',
       expect.any(Uint8Array)
     );
 
@@ -258,7 +259,7 @@ describe('Worker', () => {
     await startWorker(['node', 'worker.js']);
 
     expect(mockNC.publish).toHaveBeenCalledWith(
-      'jobs.results.job-fail',
+      'test.results',
       expect.any(Uint8Array)
     );
 

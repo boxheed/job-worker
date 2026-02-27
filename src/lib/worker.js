@@ -78,6 +78,11 @@ export async function startWorker(argv = process.argv) {
       process.env.NATS_INPUT_SUBJECT || 'jobs.pending',
     )
     .option(
+      '-r, --output-subject <subject>',
+      'NATS Subject to publish results to',
+      process.env.NATS_OUTPUT_SUBJECT || 'jobs.results',
+    )
+    .option(
       '-o, --timeout <minutes>',
       'Job execution timeout in minutes',
       process.env.JOB_TIMEOUT || '30',
@@ -101,6 +106,7 @@ export async function startWorker(argv = process.argv) {
   const WORKER_ID = options.id;
   const STREAM = options.stream;
   const SUBJECT = options.inputSubject;
+  const OUTPUT_SUBJECT = options.outputSubject;
   const JOBS_DIR = options.jobsDir;
   const WORKSPACES_DIR = options.workspacesDir;
   const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
@@ -214,10 +220,10 @@ export async function startWorker(argv = process.argv) {
         );
 
         await nc.publish(
-          `jobs.results.${id}`,
+          OUTPUT_SUBJECT,
           jc.encode(resultPayload)
         );
-        console.log(`Result for job ${id} published to jobs.results.${id}`);
+        console.log(`Result for job ${id} published to ${OUTPUT_SUBJECT}`);
 
         await m.ack();
         console.log('Message acknowledged. Disconnecting and exiting...');
@@ -234,7 +240,7 @@ export async function startWorker(argv = process.argv) {
         errorPayload.error = err.name === 'AbortError' ? 'Job timed out' : err.message;
 
         await nc.publish(
-          `jobs.results.${id}`,
+          OUTPUT_SUBJECT,
           jc.encode(errorPayload)
         );
         
