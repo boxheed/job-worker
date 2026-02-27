@@ -9,8 +9,8 @@ Decouple the job source directory (Shared Folder) from the execution environment
 ## Changes
 
 ### 1. New Configuration
-- Added `--jobs-dir` (`MQTT_JOBS_DIR`) to define the shared storage root.
-- Added `--workspaces-dir` (`MQTT_WORKSPACES_DIR`) to define the local execution root.
+- Added `--jobs-dir` (`NATS_JOBS_DIR`) to define the shared storage root.
+- Added `--workspaces-dir` (`NATS_WORKSPACES_DIR`) to define the local execution root.
 
 ### 2. Managed Lifecycle
 - **Staging:** Worker now copies job source files to a local workspace before execution.
@@ -20,7 +20,7 @@ Decouple the job source directory (Shared Folder) from the execution environment
 - **Cleanup:** Local workspaces are automatically deleted after execution.
 
 ### 3. Protocol Updates
-- The `workDir` field in MQTT payloads is deprecated. Resolution is now strictly ID-based (`{JOBS_ROOT}/{id}`).
+- The `workDir` field in payloads is deprecated. Resolution is now strictly ID-based (`{JOBS_ROOT}/{id}`).
 - Results are centralized in a `results/` folder within the job source directory.
 
 ### 4. Technical Improvements
@@ -29,6 +29,6 @@ Decouple the job source directory (Shared Folder) from the execution environment
 - Updated all unit tests to verify staging, streaming, and synchronization.
 
 ## Verification Results
-- All 20 tests passed across `executor.test.js`, `worker.test.js`, and `dry-run.test.js`.
+- All tests passed across `executor.test.js`, `worker.test.js`, and `dry-run.test.js`.
 - Verified real-time log streaming to shared directory.
 - Verified workspace cleanup after successful and failed jobs.

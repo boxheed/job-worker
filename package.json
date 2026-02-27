@@ -1,11 +1,11 @@
 {
-  "name": "mqtt-job-worker",
+  "name": "nats-job-worker",
   "version": "0.1.13",
-  "description": "CLI package for job worker",
+  "description": "CLI package for NATS JetStream job worker",
   "type": "module",
   "main": "src/index.js",
   "bin": {
-    "mqtt-fs-worker": "./bin/worker.js"
+    "nats-fs-worker": "./bin/worker.js"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -19,7 +19,8 @@
     "release": "standard-version --commit-all"
   },
   "keywords": [
-    "mqtt",
+    "nats",
+    "jetstream",
     "worker",
     "job-executor",
     "cli"
@@ -33,11 +34,11 @@
     "eslint-plugin-prettier": "^5.5.5",
     "globals": "^16.0.0",
     "prettier": "^3.8.1",
-    "vitest": "^4.0.18",
-    "standard-version": "^9.5.0"
+    "standard-version": "^9.5.0",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "commander": "^14.0.3",
-    "mqtt": "^5.15.0"
+    "nats": "^2.29.3"
   }
 }

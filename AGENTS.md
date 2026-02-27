@@ -30,4 +30,4 @@ This repository is a Node.js CLI tool written in JavaScript.
 ## CLI Execution
 
 The main entry point for the CLI is `bin/worker.js`.
-The package is designed to be executable via `npx` or by installing it globally using the command `mqtt-fs-worker`.
+The package is designed to be executable via `npx` or by installing it globally using the command `nats-fs-worker`.

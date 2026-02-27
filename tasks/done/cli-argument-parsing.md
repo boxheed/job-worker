@@ -7,11 +7,13 @@ Added support for command-line argument parsing using the `commander` library.
 - Refactored worker logic from `bin/worker.js` to `src/lib/worker.js` to improve testability and modularity.
 - Updated `bin/worker.js` to be a thin wrapper that calls the worker entry point.
 - Added support for the following CLI flags:
-    - `-u, --url`: MQTT Broker URL (defaults to `MQTT_URL` env or `mqtt://localhost:1883`).
-    - `-n, --username`: MQTT Username (defaults to `MQTT_USERNAME` env).
-    - `-p, --password`: MQTT Password (defaults to `MQTT_PASSWORD` env).
+    - `-u, --url`: NATS Server URL (defaults to `NATS_URL` env or `nats://localhost:4222`).
+    - `-n, --username`: NATS Username (defaults to `NATS_USERNAME` env).
+    - `-p, --password`: NATS Password (defaults to `NATS_PASSWORD` env).
+    - `-t, --token`: NATS Auth Token (defaults to `NATS_TOKEN` env).
     - `-i, --id`: Unique Worker ID (defaults to `WORKER_ID` env or `worker-01`).
-    - `-t, --topic`: Subscription topic (defaults to `jobs/pending`).
+    - `-s, --stream`: NATS JetStream Stream Name (defaults to `NATS_STREAM` env or `JOBS`).
+    - `-k, --subject`: NATS Subject (defaults to `NATS_SUBJECT` env or `jobs.pending`).
 - Updated `README.md` to document the new CLI options and configuration.
 - Added unit tests in `tests/worker.test.js` to verify CLI argument parsing and environment variable defaults.
 - Verified that the help menu correctly displays the options using `node bin/worker.js --help`.

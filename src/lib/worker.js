@@ -1,4 +1,4 @@
-import mqtt from 'mqtt';
+import { connect, JSONCodec } from 'nats';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Command } from 'commander';
@@ -7,6 +7,8 @@ import { executeJob } from './executor.js';
 const pkg = JSON.parse(
   fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
 );
+
+const jc = JSONCodec();
 
 /**
  * Creates a standard result payload.
@@ -27,7 +29,7 @@ function createResultPayload(id, status, exitCode) {
 /**
  * Starts the worker with the given arguments.
  * @param {string[]} argv - Command line arguments.
- * @returns {Promise<import('mqtt').MqttClient|null>} The MQTT client instance or null if dry run.
+ * @returns {Promise<import('nats').NatsConnection|null>} The NATS connection instance or null if dry run.
  */
 export async function startWorker(argv = process.argv) {
   const program = new Command();
@@ -36,48 +38,44 @@ export async function startWorker(argv = process.argv) {
     .version(pkg.version)
     .option(
       '-u, --url <url>',
-      'MQTT Broker URL',
-      process.env.MQTT_URL || 'mqtt://localhost:1883',
+      'NATS Server URL',
+      process.env.NATS_URL || 'nats://localhost:4222',
     )
     .option(
       '-n, --username <username>',
-      'MQTT Username',
-      process.env.MQTT_USERNAME,
+      'NATS Username',
+      process.env.NATS_USERNAME,
     )
     .option(
       '-p, --password <password>',
-      'MQTT Password',
-      process.env.MQTT_PASSWORD,
+      'NATS Password',
+      process.env.NATS_PASSWORD,
     )
+    .option('-t, --token <token>', 'NATS Auth Token', process.env.NATS_TOKEN)
     .option(
       '-i, --id <id>',
-      'Unique Worker ID',
+      'Unique Worker ID (Durable Name)',
       process.env.WORKER_ID || 'worker-01',
     )
     .option(
       '-j, --jobs-dir <path>',
       'Root directory for job sources (Shared Folder)',
-      process.env.MQTT_JOBS_DIR || './jobs',
+      process.env.NATS_JOBS_DIR || './jobs',
     )
     .option(
       '-w, --workspaces-dir <path>',
       'Root directory for local execution workspaces',
-      process.env.MQTT_WORKSPACES_DIR || './workspaces',
+      process.env.NATS_WORKSPACES_DIR || './workspaces',
     )
     .option(
-      '-t, --topic <topic>',
-      'Subscription topic',
-      process.env.MQTT_TOPIC || 'jobs/pending',
+      '-s, --stream <stream>',
+      'NATS JetStream Stream Name',
+      process.env.NATS_STREAM || 'JOBS',
     )
     .option(
-      '-v, --protocol-version <version>',
-      'MQTT Protocol Version (4 for 3.1.1, 5 for 5.0)',
-      process.env.MQTT_PROTOCOL_VERSION || '5',
-    )
-    .option(
-      '--clean',
-      'Use a clean MQTT session (do not queue messages while offline)',
-      process.env.MQTT_CLEAN === 'true',
+      '-k, --subject <subject>',
+      'NATS Subject to consume from',
+      process.env.NATS_SUBJECT || 'jobs.pending',
     )
     .option('--dry-run', 'Run in dry-run mode using test-payload.json')
     .parse(argv);
@@ -94,94 +92,74 @@ export async function startWorker(argv = process.argv) {
     return null;
   }
 
-  const MQTT_URL = options.url;
+  const NATS_URL = options.url;
   const WORKER_ID = options.id;
-  const TOPIC = options.topic;
+  const STREAM = options.stream;
+  const SUBJECT = options.subject;
   const JOBS_DIR = options.jobsDir;
   const WORKSPACES_DIR = options.workspacesDir;
-  const PROTOCOL_VERSION = parseInt(options.protocolVersion, 10);
 
-  console.log(`Starting worker ${WORKER_ID} connecting to ${MQTT_URL}...`);
+  console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
   console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
   console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
-  console.log(`MQTT Session: ${options.clean ? 'Clean' : 'Persistent'}`);
-  console.log(`MQTT Protocol Version: ${PROTOCOL_VERSION}`);
+  console.log(`JetStream Stream: ${STREAM}, Subject: ${SUBJECT}`);
 
   const connectOptions = {
-    clientId: WORKER_ID,
-    clean: options.clean,
-    protocolVersion: PROTOCOL_VERSION,
+    servers: NATS_URL,
+    name: WORKER_ID,
   };
 
-  if (!options.clean && PROTOCOL_VERSION === 5) {
-    connectOptions.properties = {
-      sessionExpiryInterval: 4294967295, // Persistent session (indefinite)
-      receiveMaximum: 1, // Only receive one job at a time
-    };
+  if (options.username) {
+    connectOptions.user = options.username;
+    connectOptions.pass = options.password;
+  } else if (options.token) {
+    connectOptions.token = options.token;
   }
 
-  if (options.username) connectOptions.username = options.username;
-  if (options.password) connectOptions.password = options.password;
+  let nc;
+  try {
+    nc = await connect(connectOptions);
+    console.log('Connected to NATS');
+  } catch (err) {
+    console.error(`Error connecting to NATS: ${err.message}`);
+    process.exit(1);
+  }
 
-  const client = mqtt.connect(MQTT_URL, connectOptions);
-  let isProcessing = false;
-  /*
-  const pendingAcks = new Map();
+  const js = nc.jetstream();
 
-  // Override handleMessage to capture the acknowledgement callback.
-  // This allows us to delay the PUBACK until the job is fully processed.
-  
-  const originalHandleMessage = client.handleMessage.bind(client);
-  client.handleMessage = (packet, callback) => {
-    if (packet.cmd === 'publish' && packet.qos === 1) {
-      pendingAcks.set(packet.messageId, callback);
-    } else {
-      originalHandleMessage(packet, callback);
-    }
-  };
-  */
-
-  client.on('connect', () => {
-    console.log('Connected to MQTT broker');
-    client.subscribe(TOPIC, { qos: 1 }, (err) => {
-      if (err) {
-        console.error(`Failed to subscribe to ${TOPIC}:`, err);
-        process.exit(1);
-      }
-      console.log(`Subscribed to ${TOPIC}`);
-    });
-  });
-
-  client.on('error', (err) => {
-    console.error('MQTT error:', err);
-  });
-
-  client.on('message', async (topic, message, packet) => {
-    if (topic === TOPIC) {
-      if (isProcessing) return;
-      isProcessing = true;
-
-      // If it's a retained message, clear it from the broker immediately
-      if (packet.retain) {
-        client.publish(topic, '', { qos: 1, retain: true }, (err) => {
-          if (err) console.error('Failed to clear retained message:', err);
+  try {
+    // Get the consumer
+    const consumer = await js.consumers.get(STREAM, WORKER_ID).catch(async () => {
+        // If consumer doesn't exist, try to create it if it's not there.
+        // In a real production environment, you might want this pre-configured.
+        console.log(`Consumer ${WORKER_ID} not found, attempting to create...`);
+        return await js.consumers.add(STREAM, {
+            durable_name: WORKER_ID,
+            ack_policy: 'Explicit',
+            filter_subject: SUBJECT,
         });
-      }
+    });
 
+    console.log(`Waiting for next job on ${SUBJECT}...`);
+    const messages = await consumer.fetch({ max_messages: 1, expires: 10000 });
+    
+    for await (const m of messages) {
       let payload;
       try {
-        payload = JSON.parse(message.toString());
+        payload = jc.decode(m.data);
       } catch (err) {
         console.error('Failed to parse job payload:', err);
-        client.end(false, () => process.exit(1));
-        return;
+        m.term();
+        await nc.close();
+        process.exit(1);
       }
 
       const { id } = payload;
       if (!id) {
         console.error('Invalid payload: missing id', payload);
-        client.end(false, () => process.exit(1));
-        return;
+        m.term();
+        await nc.close();
+        process.exit(1);
       }
 
       console.log(`Received job ${id}`);
@@ -201,55 +179,38 @@ export async function startWorker(argv = process.argv) {
           result.exitCode,
         );
 
-        client.publish(
-          `jobs/results/${id}`,
-          JSON.stringify(resultPayload),
-          { qos: 1 },
-          (err) => {
-            if (err) {
-              console.error('Failed to publish result:', err);
-            } else {
-              console.log(`Result for job ${id} published`);
-            }
-/*
-            const ack = pendingAcks.get(packet.messageId);
-            if (ack) {
-              console.log(`Acknowledging job message ${packet.messageId}...`);
-              ack();
-              pendingAcks.delete(packet.messageId);
-            }
-*/
-            console.log('Disconnecting and exiting...');
-            client.end(false, () => {
-              process.exit(0);
-            });
-          },
+        await nc.publish(
+          `jobs.results.${id}`,
+          jc.encode(resultPayload)
         );
+        console.log(`Result for job ${id} published to jobs.results.${id}`);
+
+        await m.ack();
+        console.log('Message acknowledged. Disconnecting and exiting...');
+        await nc.close();
+        process.exit(0);
       } catch (err) {
         console.error(`Error executing job ${id}:`, err);
         const errorPayload = createResultPayload(id, 'failed', 1);
         errorPayload.error = err.message;
 
-        client.publish(
-          `jobs/results/${id}`,
-          JSON.stringify(errorPayload),
-          { qos: 1 },
-          () => {
-            /*
-            const ack = pendingAcks.get(packet.messageId);
-            if (ack) {
-              ack();
-              pendingAcks.delete(packet.messageId);
-            }
-              */
-            client.end(false, () => process.exit(1));
-          },
+        await nc.publish(
+          `jobs.results.${id}`,
+          jc.encode(errorPayload)
         );
+        
+        await m.nak(); // Negative ack so it can be retried if configured
+        await nc.close();
+        process.exit(1);
       }
     }
-  });
+  } catch (err) {
+    console.error(`JetStream error: ${err.message}`);
+    await nc.close();
+    process.exit(1);
+  }
 
-  return client;
+  return nc;
 }
 
 /**
@@ -288,15 +249,14 @@ async function handleDryRun(jobsDir, workspacesDir) {
 
 /**
  * Sets up signal handlers for graceful shutdown.
- * @param {import('mqtt').MqttClient} client - The MQTT client instance.
+ * @param {import('nats').NatsConnection} nc - The NATS connection instance.
  */
-export function setupSignalHandlers(client) {
-  const handleSignal = (signal) => {
+export function setupSignalHandlers(nc) {
+  const handleSignal = async (signal) => {
     console.log(`Received ${signal}. Shutting down...`);
-    client.end(false, () => {
-      console.log('MQTT client disconnected. Exiting.');
-      process.exit(0);
-    });
+    await nc.close();
+    console.log('NATS connection closed. Exiting.');
+    process.exit(0);
   };
 
   process.on('SIGINT', () => handleSignal('SIGINT'));

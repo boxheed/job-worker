@@ -13,7 +13,7 @@ Implemented a more robust and verifiable task reporting mechanism. Instead of a 
     - Include references to these log files within the manifest.
 
 ### `src/lib/worker.js`
-- Updated the MQTT response payload to include `manifestFile` instead of `logFile`.
+- Updated the response payload to include `manifestFile` instead of `logFile`.
 - Updated the dry-run output to match the new structure.
 
 ### `README.md`
@@ -24,7 +24,7 @@ Implemented a more robust and verifiable task reporting mechanism. Instead of a 
 - Added validation for the content of the manifest (timing, step array, status).
 
 ### `tests/worker.test.js`
-- Updated mock expectations to look for `manifestFile` in the MQTT response.
+- Updated mock expectations to look for `manifestFile` in the response.
 
 ## Verification Results
 - All unit tests passed: `npm test`
