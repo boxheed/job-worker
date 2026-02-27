@@ -1,4 +1,4 @@
-import { connect, JSONCodec } from 'nats';
+import { connect, JSONCodec, AckPolicy } from 'nats';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Command } from 'commander';
@@ -77,6 +77,11 @@ export async function startWorker(argv = process.argv) {
       'NATS Subject to consume from',
       process.env.NATS_SUBJECT || 'jobs.pending',
     )
+    .option(
+      '-o, --timeout <minutes>',
+      'Job execution timeout in minutes',
+      process.env.JOB_TIMEOUT || '30',
+    )
     .option('--dry-run', 'Run in dry-run mode using test-payload.json')
     .parse(argv);
 
@@ -98,6 +103,7 @@ export async function startWorker(argv = process.argv) {
   const SUBJECT = options.subject;
   const JOBS_DIR = options.jobsDir;
   const WORKSPACES_DIR = options.workspacesDir;
+  const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
 
   console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
   console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
@@ -128,23 +134,42 @@ export async function startWorker(argv = process.argv) {
   const js = nc.jetstream();
 
   try {
+    const jsm = await nc.jetstreamManager();
+
+    // Ensure the stream exists
+    try {
+      await jsm.streams.info(STREAM);
+    } catch (err) {
+      if (err.message.includes('stream not found')) {
+        console.log(`Stream ${STREAM} not found, attempting to create...`);
+        await jsm.streams.add({
+          name: STREAM,
+          subjects: [SUBJECT],
+        });
+      } else {
+        throw err;
+      }
+    }
+
     // Get the consumer
     const consumer = await js.consumers.get(STREAM, WORKER_ID).catch(async () => {
         // If consumer doesn't exist, try to create it if it's not there.
         // In a real production environment, you might want this pre-configured.
         console.log(`Consumer ${WORKER_ID} not found, attempting to create...`);
-        const jsm = await nc.jetstreamManager();
         return await jsm.consumers.add(STREAM, {
             durable_name: WORKER_ID,
-            ack_policy: 'Explicit',
+            ack_policy: AckPolicy.Explicit,
             filter_subject: SUBJECT,
+            ack_wait: TIMEOUT_MINUTES * 60 * 1_000_000_000,
         });
     });
 
     console.log(`Waiting for next job on ${SUBJECT}...`);
-    const messages = await consumer.fetch({ max_messages: 1, expires: 10000 });
+    const messages = await consumer.fetch({ max_messages: 1, expires: 60000 });
     
+    let received = false;
     for await (const m of messages) {
+      received = true;
       let payload;
       try {
         payload = jc.decode(m.data);
@@ -165,13 +190,21 @@ export async function startWorker(argv = process.argv) {
 
       console.log(`Received job ${id}`);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.error(`Job ${id} timed out after ${TIMEOUT_MINUTES} minutes. Aborting...`);
+        controller.abort();
+      }, TIMEOUT_MINUTES * 60 * 1000);
+
       try {
         const result = await executeJob(
           JOBS_DIR,
           WORKSPACES_DIR,
           id,
           payload.steps ? { steps: payload.steps } : null,
+          controller.signal,
         );
+        clearTimeout(timeoutId);
         console.log(`Job ${id} finished with status ${result.status}`);
 
         const resultPayload = createResultPayload(
@@ -181,7 +214,7 @@ export async function startWorker(argv = process.argv) {
         );
 
         await nc.publish(
-          `jobs.results.${id}`,
+          `jobs.results`,
           jc.encode(resultPayload)
         );
         console.log(`Result for job ${id} published to jobs.results.${id}`);
@@ -191,9 +224,14 @@ export async function startWorker(argv = process.argv) {
         await nc.close();
         process.exit(0);
       } catch (err) {
-        console.error(`Error executing job ${id}:`, err);
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+            console.error(`Job ${id} was aborted due to timeout.`);
+        } else {
+            console.error(`Error executing job ${id}:`, err);
+        }
         const errorPayload = createResultPayload(id, 'failed', 1);
-        errorPayload.error = err.message;
+        errorPayload.error = err.name === 'AbortError' ? 'Job timed out' : err.message;
 
         await nc.publish(
           `jobs.results.${id}`,
@@ -204,6 +242,12 @@ export async function startWorker(argv = process.argv) {
         await nc.close();
         process.exit(1);
       }
+    }
+
+    if (!received) {
+      console.log('No messages received within timeout. Exiting...');
+      await nc.close();
+      process.exit(0);
     }
   } catch (err) {
     console.error(`JetStream error: ${err.message}`);

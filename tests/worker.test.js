@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { connect, JSONCodec } from 'nats';
+import { connect, JSONCodec, AckPolicy } from 'nats';
 import { executeJob } from '../src/lib/executor.js';
 import { startWorker, setupSignalHandlers } from '../src/lib/worker.js';
 
@@ -11,6 +11,11 @@ vi.mock('nats', () => {
   return {
     connect: vi.fn(),
     JSONCodec: vi.fn(() => mockCodec),
+    AckPolicy: {
+      Explicit: 'explicit',
+      All: 'all',
+      None: 'none',
+    },
   };
 });
 vi.mock('../src/lib/executor.js');
@@ -43,6 +48,10 @@ describe('Worker', () => {
     const mockJSM = {
       consumers: {
         add: vi.fn().mockResolvedValue(mockConsumer),
+      },
+      streams: {
+        info: vi.fn().mockResolvedValue({}),
+        add: vi.fn().mockResolvedValue({}),
       },
     };
 
@@ -124,9 +133,33 @@ describe('Worker', () => {
     const jsm = await mockNC.jetstreamManager();
     expect(jsm.consumers.add).toHaveBeenCalledWith('TEST_STREAM', {
       durable_name: 'test-worker',
-      ack_policy: 'Explicit',
+      ack_policy: AckPolicy.Explicit,
       filter_subject: 'test.jobs',
+      ack_wait: 30 * 60 * 1_000_000_000,
     });
+  });
+
+  it('should create stream if it does not exist', async () => {
+    mockConsumer.fetch.mockResolvedValue(emptyGenerator());
+    const jsm = await mockNC.jetstreamManager();
+    jsm.streams.info.mockRejectedValue(new Error('stream not found'));
+
+    await startWorker(['node', 'worker.js']);
+
+    expect(jsm.streams.info).toHaveBeenCalledWith('TEST_STREAM');
+    expect(jsm.streams.add).toHaveBeenCalledWith({
+      name: 'TEST_STREAM',
+      subjects: ['test.jobs'],
+    });
+  });
+
+  it('should exit with status 0 if no message is received within timeout', async () => {
+    mockConsumer.fetch.mockResolvedValue(emptyGenerator());
+
+    await startWorker(['node', 'worker.js']);
+
+    expect(mockNC.close).toHaveBeenCalled();
+    expect(process.exit).toHaveBeenCalledWith(0);
   });
 
   it('should handle message, execute job, and exit', async () => {
@@ -150,6 +183,7 @@ describe('Worker', () => {
       './test-workspaces',
       'job-123',
       null,
+      expect.any(AbortSignal),
     );
 
     expect(mockNC.publish).toHaveBeenCalledWith(
@@ -183,6 +217,7 @@ describe('Worker', () => {
       './test-workspaces',
       'job-steps',
       { steps: ['echo hello'] },
+      expect.any(AbortSignal),
     );
   });
 

@@ -6,62 +6,98 @@ import { spawn } from 'node:child_process';
  * Executes a single step of a job.
  * @param {string} command - The command to execute.
  * @param {string} logPath - Path to the log file for this step.
+ * @param {string} cwd - Current working directory.
+ * @param {AbortSignal} [signal] - Optional AbortSignal to terminate the process.
  * @returns {Promise<number>} Resolves with the exit code.
  */
-async function executeStep(command, logPath, cwd) {
-  return new Promise((resolve) => {
+async function executeStep(command, logPath, cwd, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      return reject(signal.reason);
+    }
+    
     const logStream = fs.createWriteStream(logPath);
-    const child = spawn(command, {
-      shell: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: cwd,
-    });
+    let child;
 
-    child.stdout.pipe(logStream);
-    child.stderr.pipe(logStream);
-
-    let exitCode = null;
-    let streamFinished = false;
-    let processExited = false;
-
-    const tryResolve = () => {
-      if (streamFinished && processExited) {
-        resolve(exitCode === null ? 1 : exitCode);
-      }
+    const onAbort = () => {
+      if (child) child.kill();
+      logStream.end();
+      reject(signal.reason);
     };
 
-    child.on('exit', (code) => {
-      exitCode = code;
-      processExited = true;
-      tryResolve();
-    });
-
-    child.on('close', (code) => {
-      if (exitCode === null) exitCode = code;
-      processExited = true;
-      logStream.end();
-    });
-
-    child.on('error', (err) => {
-      console.error(`Spawn error for command "${command}":`, err);
-      logStream.write(`\nSpawn error: ${err.message}\n`);
-      exitCode = 1;
-      processExited = true;
-      logStream.end();
-    });
-
-    logStream.on('finish', () => {
-      streamFinished = true;
-      tryResolve();
-    });
+    if (signal) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
 
     logStream.on('error', (err) => {
-      console.error(`LogStream error:`, err);
-      streamFinished = true;
-      tryResolve();
+      console.error(`Failed to create/write log stream at ${logPath}:`, err);
+      if (child) child.kill();
+      reject(err);
+    });
+
+    logStream.on('open', () => {
+      try {
+        const spawnOptions = {
+          shell: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: cwd,
+        };
+        if (signal) {
+          spawnOptions.signal = signal;
+        }
+
+        child = spawn(command, spawnOptions);
+
+        child.stdout.pipe(logStream);
+        child.stderr.pipe(logStream);
+
+        let exitCode = null;
+        let streamFinished = false;
+        let processExited = false;
+
+        const tryResolve = () => {
+          if (streamFinished && processExited) {
+            if (signal) {
+              signal.removeEventListener('abort', onAbort);
+            }
+            resolve(exitCode === null ? 1 : exitCode);
+          }
+        };
+
+        child.on('exit', (code) => {
+          exitCode = code;
+          processExited = true;
+          tryResolve();
+        });
+
+        child.on('close', (code) => {
+          if (exitCode === null) exitCode = code;
+          processExited = true;
+          logStream.end();
+        });
+
+        child.on('error', (err) => {
+          if (err.name === 'AbortError') return;
+          console.error(`Spawn error for command "${command}":`, err);
+          logStream.write(`\nSpawn error: ${err.message}\n`);
+          exitCode = 1;
+          processExited = true;
+          logStream.end();
+        });
+
+        logStream.on('finish', () => {
+          streamFinished = true;
+          tryResolve();
+        });
+      } catch (spawnErr) {
+        if (signal) signal.removeEventListener('abort', onAbort);
+        logStream.end();
+        reject(spawnErr);
+      }
     });
   });
 }
+
 
 /**
  * Executes a job by staging its source to a local workspace and running steps.
@@ -69,6 +105,7 @@ async function executeStep(command, logPath, cwd) {
  * @param {string} workspacesRoot - The root directory for execution workspaces (Local).
  * @param {string} id - The unique identifier for the job.
  * @param {object} [overrideConfig] - Optional job configuration.
+ * @param {AbortSignal} [signal] - Optional AbortSignal to terminate the job.
  * @returns {Promise<{status: string, exitCode: number, manifest: object}>}
  */
 export async function executeJob(
@@ -76,6 +113,7 @@ export async function executeJob(
   workspacesRoot,
   id,
   overrideConfig = null,
+  signal = null,
 ) {
   const originalCwd = process.cwd();
   const startTime = new Date().toISOString();
@@ -93,14 +131,14 @@ export async function executeJob(
   let overallExitCode = 0;
   const sourceDir = path.resolve(jobsRoot, id);
   const workspaceDir = path.resolve(workspacesRoot, id);
-  const resultsDir = path.join(sourceDir, 'results');
+  const resultsDir = path.resolve(sourceDir, 'results');
 
   try {
-    // 1. Prepare Workspace and Results directory
-    if (!fs.existsSync(resultsDir)) {
-      fs.mkdirSync(resultsDir, { recursive: true });
-    }
+    // Ensure directories exist
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.mkdirSync(resultsDir, { recursive: true });
 
+    // 1. Prepare Workspace
     if (fs.existsSync(workspaceDir)) {
       fs.rmSync(workspaceDir, { recursive: true, force: true });
     }
@@ -144,7 +182,7 @@ export async function executeJob(
       const stepCommand = jobConfig.steps[i];
       const stepStartTime = Date.now();
       const logFileName = `step_${i}.log`;
-      const logPath = path.join(resultsDir, logFileName); // Log directly to shared results folder
+      const logPath = path.resolve(resultsDir, logFileName); // Use path.resolve for absolute path
 
       const stepResult = {
         index: i,
@@ -157,7 +195,7 @@ export async function executeJob(
 
       manifest.steps.push(stepResult);
 
-      const exitCode = await executeStep(stepCommand, logPath, workspaceDir);
+      const exitCode = await executeStep(stepCommand, logPath, workspaceDir, signal);
       stepResult.durationMs = Date.now() - stepStartTime;
       stepResult.exitCode = exitCode;
 
