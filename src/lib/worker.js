@@ -73,9 +73,9 @@ export async function startWorker(argv = process.argv) {
       process.env.NATS_STREAM || 'JOBS',
     )
     .option(
-      '-k, --subject <subject>',
+      '-k, --input-subject <subject>',
       'NATS Subject to consume from',
-      process.env.NATS_SUBJECT || 'jobs.pending',
+      process.env.NATS_INPUT_SUBJECT || 'jobs.pending',
     )
     .option(
       '-o, --timeout <minutes>',
