@@ -13,7 +13,7 @@ Added support for command-line argument parsing using the `commander` library.
     - `-t, --token`: NATS Auth Token (defaults to `NATS_TOKEN` env).
     - `-i, --id`: Unique Worker ID (defaults to `WORKER_ID` env or `worker-01`).
     - `-s, --stream`: NATS JetStream Stream Name (defaults to `NATS_STREAM` env or `JOBS`).
-    - `-k, --subject`: NATS Subject (defaults to `NATS_SUBJECT` env or `jobs.pending`).
+    - `-k, --input-subject`: NATS Subject (defaults to `NATS_INPUT_SUBJECT` env or `jobs.pending`).
 - Updated `README.md` to document the new CLI options and configuration.
 - Added unit tests in `tests/worker.test.js` to verify CLI argument parsing and environment variable defaults.
 - Verified that the help menu correctly displays the options using `node bin/worker.js --help`.

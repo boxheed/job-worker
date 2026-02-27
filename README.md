@@ -87,7 +87,7 @@ After execution, the shared directory will contain a `results/` folder:
 | `-j, --jobs-dir` | `NATS_JOBS_DIR` | `./jobs` | Root for job sources (Shared) |
 | `-w, --workspaces-dir` | `NATS_WORKSPACES_DIR` | `./workspaces` | Root for execution (Local) |
 | `-s, --stream` | `NATS_STREAM` | `JOBS` | JetStream Stream Name |
-| `-k, --subject` | `NATS_SUBJECT` | `jobs.pending` | NATS Subject |
+| `-k, --input-subject` | `NATS_INPUT_SUBJECT` | `jobs.pending` | NATS Subject |
 | `--dry-run` | - | - | Run using local `test-payload.json` |
 
 ### Reliability & Scaling
@@ -100,7 +100,7 @@ To scale workers, simply run multiple instances with the **same Durable Name** (
 
 Example:
 ```bash
-nats-fs-worker --id worker-pool --stream JOBS --subject jobs.pending
+nats-fs-worker --id worker-pool --stream JOBS --input-subject jobs.pending
 ```
 
 ### Dry Run Mode

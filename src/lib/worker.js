@@ -100,7 +100,7 @@ export async function startWorker(argv = process.argv) {
   const NATS_URL = options.url;
   const WORKER_ID = options.id;
   const STREAM = options.stream;
-  const SUBJECT = options.subject;
+  const SUBJECT = options.inputSubject;
   const JOBS_DIR = options.jobsDir;
   const WORKSPACES_DIR = options.workspacesDir;
   const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
@@ -214,7 +214,7 @@ export async function startWorker(argv = process.argv) {
         );
 
         await nc.publish(
-          `jobs.results`,
+          `jobs.results.${id}`,
           jc.encode(resultPayload)
         );
         console.log(`Result for job ${id} published to jobs.results.${id}`);

@@ -31,7 +31,7 @@ describe('Worker', () => {
     vi.stubEnv('NATS_USERNAME', 'test-user');
     vi.stubEnv('NATS_PASSWORD', 'test-pass');
     vi.stubEnv('NATS_STREAM', 'TEST_STREAM');
-    vi.stubEnv('NATS_SUBJECT', 'test.jobs');
+    vi.stubEnv('NATS_INPUT_SUBJECT', 'test.jobs');
     vi.stubEnv('NATS_JOBS_DIR', './test-jobs');
     vi.stubEnv('NATS_WORKSPACES_DIR', './test-workspaces');
 
