@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.2](https://github.com/boxheed/job-worker/compare/v0.3.1...v0.3.2) (2026-02-27)
+
+
+### Features
+
+* make result publish subject configurable ([6abf72c](https://github.com/boxheed/job-worker/commit/6abf72c9601307478bf9818cefa627014ed09908))
+
 ### [0.3.1](https://github.com/boxheed/job-worker/compare/v0.3.0...v0.3.1) (2026-02-27)
 
 
