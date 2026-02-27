@@ -37,12 +37,18 @@ describe('Worker', () => {
     mockJS = {
       consumers: {
         get: vi.fn().mockResolvedValue(mockConsumer),
+      },
+    };
+
+    const mockJSM = {
+      consumers: {
         add: vi.fn().mockResolvedValue(mockConsumer),
       },
     };
 
     mockNC = {
       jetstream: vi.fn().mockReturnValue(mockJS),
+      jetstreamManager: vi.fn().mockResolvedValue(mockJSM),
       publish: vi.fn().mockResolvedValue({}),
       close: vi.fn().mockResolvedValue(undefined),
     };
@@ -106,6 +112,21 @@ describe('Worker', () => {
     );
 
     expect(mockJS.consumers.get).toHaveBeenCalledWith('CLI_STREAM', 'cli-worker');
+  });
+
+  it('should create consumer if it does not exist', async () => {
+    mockConsumer.fetch.mockResolvedValue(emptyGenerator());
+    mockJS.consumers.get.mockRejectedValue(new Error('consumer not found'));
+
+    await startWorker(['node', 'worker.js']);
+
+    expect(mockJS.consumers.get).toHaveBeenCalled();
+    const jsm = await mockNC.jetstreamManager();
+    expect(jsm.consumers.add).toHaveBeenCalledWith('TEST_STREAM', {
+      durable_name: 'test-worker',
+      ack_policy: 'Explicit',
+      filter_subject: 'test.jobs',
+    });
   });
 
   it('should handle message, execute job, and exit', async () => {

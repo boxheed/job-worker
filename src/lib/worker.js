@@ -133,7 +133,8 @@ export async function startWorker(argv = process.argv) {
         // If consumer doesn't exist, try to create it if it's not there.
         // In a real production environment, you might want this pre-configured.
         console.log(`Consumer ${WORKER_ID} not found, attempting to create...`);
-        return await js.consumers.add(STREAM, {
+        const jsm = await nc.jetstreamManager();
+        return await jsm.consumers.add(STREAM, {
             durable_name: WORKER_ID,
             ack_policy: 'Explicit',
             filter_subject: SUBJECT,
