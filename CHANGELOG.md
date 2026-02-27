@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.2](https://github.com/boxheed/job-worker/compare/v0.2.1...v0.2.2) (2026-02-27)
+
+
+### Features
+
+* add job timeout and fix directory handling ([ea3f270](https://github.com/boxheed/job-worker/commit/ea3f2705044fcba360bff40c28d03be3e4780075))
+
 ### [0.2.1](https://github.com/boxheed/job-worker/compare/v0.2.0...v0.2.1) (2026-02-27)
 
 
