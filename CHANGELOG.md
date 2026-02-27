@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.2.0](https://github.com/boxheed/job-worker/compare/v0.1.13...v0.2.0) (2026-02-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* migrate from MQTT to NATS JetStream
+
+### Features
+
+* migrate from MQTT to NATS JetStream ([a667692](https://github.com/boxheed/job-worker/commit/a667692f9fd10ca12823e8501aad93c453f8e2c7))
+
 ### [0.1.13](https://github.com/boxheed/job-worker/compare/v0.1.12...v0.1.13) (2026-02-23)
 
 
