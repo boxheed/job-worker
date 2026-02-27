@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.1](https://github.com/boxheed/job-worker/compare/v0.2.0...v0.2.1) (2026-02-27)
+
+
+### Bug Fixes
+
+* use JetStreamManager for consumer creation ([aaf0375](https://github.com/boxheed/job-worker/commit/aaf03756533ef171ac60e387dfc3de25ed56d481))
+
 ## [0.2.0](https://github.com/boxheed/job-worker/compare/v0.1.13...v0.2.0) (2026-02-27)
 
 
