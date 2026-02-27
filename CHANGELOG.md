@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.3.0](https://github.com/boxheed/job-worker/compare/v0.2.2...v0.3.0) (2026-02-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* changed the name of the input subject
+
+### Features
+
+* changed the name of the input subject ([c7487c0](https://github.com/boxheed/job-worker/commit/c7487c063113ec09d0df7f461f39e669fcedb65d))
+
 ### [0.2.2](https://github.com/boxheed/job-worker/compare/v0.2.1...v0.2.2) (2026-02-27)
 
 
