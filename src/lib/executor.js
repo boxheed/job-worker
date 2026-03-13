@@ -234,10 +234,21 @@ export async function executeJob(
 
     // Write the result.json manifest directly to the shared results folder
     try {
-      fs.writeFileSync(
-        path.join(resultsDir, 'result.json'),
-        JSON.stringify(manifest, null, 2),
-      );
+      const resultPath = path.join(resultsDir, 'result.json');
+      const data = JSON.stringify(manifest, null, 2);
+      const fd = fs.openSync(resultPath, 'w');
+      fs.writeSync(fd, data);
+      fs.fsyncSync(fd);
+      fs.closeSync(fd);
+
+      // Attempt to fsync the directory to ensure metadata visibility on the shared drive
+      try {
+        const dirFd = fs.openSync(resultsDir, 'r');
+        fs.fsyncSync(dirFd);
+        fs.closeSync(dirFd);
+      } catch (dirErr) {
+        // Directory fsync is not supported on all filesystems, ignore failure
+      }
     } catch (writeErr) {
       console.error('Failed to write result.json:', writeErr);
     }

@@ -89,6 +89,7 @@ After execution, the shared directory will contain a `results/` folder:
 | `-s, --stream` | `NATS_STREAM` | `JOBS` | JetStream Stream Name |
 | `-k, --input-subject` | `NATS_INPUT_SUBJECT` | `jobs.pending` | NATS Subject to consume from |
 | `-r, --output-subject` | `NATS_OUTPUT_SUBJECT` | `jobs.results` | NATS Subject to publish results to |
+| `-v, --visibility-timeout` | `NATS_VISIBILITY_TIMEOUT` | `0` | Delay in seconds before publishing the result to NATS |
 | `--dry-run` | - | - | Run using local `test-payload.json` |
 
 ### Reliability & Scaling

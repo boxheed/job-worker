@@ -10,6 +10,8 @@ const pkg = JSON.parse(
 
 const jc = JSONCodec();
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Creates a standard result payload.
  * @param {string} id - The job ID.
@@ -83,6 +85,11 @@ export async function startWorker(argv = process.argv) {
       process.env.NATS_OUTPUT_SUBJECT || 'jobs.results',
     )
     .option(
+      '-v, --visibility-timeout <seconds>',
+      'Delay in seconds before publishing the result to NATS',
+      process.env.NATS_VISIBILITY_TIMEOUT || '0',
+    )
+    .option(
       '-o, --timeout <minutes>',
       'Job execution timeout in minutes',
       process.env.JOB_TIMEOUT || '30',
@@ -110,11 +117,15 @@ export async function startWorker(argv = process.argv) {
   const JOBS_DIR = options.jobsDir;
   const WORKSPACES_DIR = options.workspacesDir;
   const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
+  const VISIBILITY_TIMEOUT_MS = parseInt(options.visibilityTimeout || '0', 10) * 1000;
 
   console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
   console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
   console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
   console.log(`JetStream Stream: ${STREAM}, Subject: ${SUBJECT}`);
+  if (VISIBILITY_TIMEOUT_MS > 0) {
+    console.log(`Visibility timeout configured: ${VISIBILITY_TIMEOUT_MS / 1000}s`);
+  }
 
   const connectOptions = {
     servers: NATS_URL,
@@ -219,6 +230,11 @@ export async function startWorker(argv = process.argv) {
           result.exitCode,
         );
 
+        if (VISIBILITY_TIMEOUT_MS > 0) {
+          console.log(`Waiting ${VISIBILITY_TIMEOUT_MS / 1000}s for visibility...`);
+          await sleep(VISIBILITY_TIMEOUT_MS);
+        }
+
         await nc.publish(
           OUTPUT_SUBJECT,
           jc.encode(resultPayload)
@@ -238,6 +254,11 @@ export async function startWorker(argv = process.argv) {
         }
         const errorPayload = createResultPayload(id, 'failed', 1);
         errorPayload.error = err.name === 'AbortError' ? 'Job timed out' : err.message;
+
+        if (VISIBILITY_TIMEOUT_MS > 0) {
+          console.log(`Waiting ${VISIBILITY_TIMEOUT_MS / 1000}s for visibility...`);
+          await sleep(VISIBILITY_TIMEOUT_MS);
+        }
 
         await nc.publish(
           OUTPUT_SUBJECT,
