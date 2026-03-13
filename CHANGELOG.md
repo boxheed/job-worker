@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.3](https://github.com/boxheed/job-worker/compare/v0.3.2...v0.3.3) (2026-03-13)
+
+
+### Features
+
+* add visibility timeout option for result publishing ([4020f9a](https://github.com/boxheed/job-worker/commit/4020f9a894ca3b6ee55a0d3bb7c12d28cbee9207))
+
 ### [0.3.2](https://github.com/boxheed/job-worker/compare/v0.3.1...v0.3.2) (2026-02-27)
 
 
