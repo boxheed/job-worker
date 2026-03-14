@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.5](https://github.com/boxheed/job-worker/compare/v0.3.4...v0.3.5) (2026-03-14)
+
+
+### Features
+
+* add directory listing after rclone sync ([e8f752b](https://github.com/boxheed/job-worker/commit/e8f752b19187415af27209a7a7ca105437dbe850))
+
 ### [0.3.4](https://github.com/boxheed/job-worker/compare/v0.3.3...v0.3.4) (2026-03-14)
 
 
