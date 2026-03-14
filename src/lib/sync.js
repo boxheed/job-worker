@@ -117,14 +117,16 @@ export function syncDir(src, dest, options = {}) {
     }
 
     if (overwrite) {
-        const destSize = destStats.get(relPath);
-        if (destSize !== srcSize) {
-           throw new Error(`Validation failed: ${relPath} size mismatch (src: ${srcSize}, dest: ${destSize})`);
-        }
+      const destSize = destStats.get(relPath);
+      if (destSize !== srcSize) {
+        throw new Error(
+          `Validation failed: ${relPath} size mismatch (src: ${srcSize}, dest: ${destSize})`,
+        );
+      }
     } else {
-        // If not overwriting, we just care that it exists.
-        // We could also check that it's NOT the srcSize if we really wanted to be sure it wasn't overwritten,
-        // but that's overkill.
+      // If not overwriting, we just care that it exists.
+      // We could also check that it's NOT the srcSize if we really wanted to be sure it wasn't overwritten,
+      // but that's overkill.
     }
   }
 }

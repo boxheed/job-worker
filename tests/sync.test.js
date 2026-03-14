@@ -36,13 +36,17 @@ describe('syncDir utility', () => {
     vi.mocked(execSync).mockReturnValueOnce('rclone v1.60.0');
     expect(isRcloneAvailable()).toBe(true);
 
-    vi.mocked(execSync).mockImplementationOnce(() => { throw new Error(); });
+    vi.mocked(execSync).mockImplementationOnce(() => {
+      throw new Error();
+    });
     expect(isRcloneAvailable()).toBe(false);
   });
 
   it('should sync files using fs.cpSync fallback when rclone is not available', () => {
     const { execSync } = child_process;
-    vi.mocked(execSync).mockImplementation(() => { throw new Error(); });
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error();
+    });
 
     fs.writeFileSync(path.join(srcDir, 'file1.txt'), 'content1');
     fs.mkdirSync(path.join(srcDir, 'subdir'));
@@ -50,13 +54,19 @@ describe('syncDir utility', () => {
 
     syncDir(srcDir, destDir);
 
-    expect(fs.readFileSync(path.join(destDir, 'file1.txt'), 'utf8')).toBe('content1');
-    expect(fs.readFileSync(path.join(destDir, 'subdir', 'file2.txt'), 'utf8')).toBe('content2');
+    expect(fs.readFileSync(path.join(destDir, 'file1.txt'), 'utf8')).toBe(
+      'content1',
+    );
+    expect(
+      fs.readFileSync(path.join(destDir, 'subdir', 'file2.txt'), 'utf8'),
+    ).toBe('content2');
   });
 
   it('should respect exclude option', () => {
     const { execSync } = child_process;
-    vi.mocked(execSync).mockImplementation(() => { throw new Error(); });
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error();
+    });
 
     fs.writeFileSync(path.join(srcDir, 'file1.txt'), 'content1');
     fs.mkdirSync(path.join(srcDir, 'exclude_me'));
@@ -70,19 +80,25 @@ describe('syncDir utility', () => {
 
   it('should respect overwrite: false option', () => {
     const { execSync } = child_process;
-    vi.mocked(execSync).mockImplementation(() => { throw new Error(); });
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error();
+    });
 
     fs.writeFileSync(path.join(srcDir, 'file1.txt'), 'new content');
     fs.writeFileSync(path.join(destDir, 'file1.txt'), 'old content');
 
     syncDir(srcDir, destDir, { overwrite: false });
 
-    expect(fs.readFileSync(path.join(destDir, 'file1.txt'), 'utf8')).toBe('old content');
+    expect(fs.readFileSync(path.join(destDir, 'file1.txt'), 'utf8')).toBe(
+      'old content',
+    );
   });
 
   it('should throw error if validation fails (missing file)', () => {
     const { execSync } = child_process;
-    vi.mocked(execSync).mockImplementation(() => { throw new Error(); });
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error();
+    });
 
     // We can't easily mock fs.cpSync here if we want to use the real one in other tests,
     // but we can just not write the file in a manual loop if we were doing it manually.
@@ -92,21 +108,27 @@ describe('syncDir utility', () => {
 
     fs.writeFileSync(path.join(srcDir, 'file1.txt'), 'content');
 
-    expect(() => syncDir(srcDir, destDir)).toThrow('Validation failed: file1.txt missing in destination');
+    expect(() => syncDir(srcDir, destDir)).toThrow(
+      'Validation failed: file1.txt missing in destination',
+    );
     cpSpy.mockRestore();
   });
 
   it('should throw error if validation fails (size mismatch)', () => {
     const { execSync } = child_process;
-    vi.mocked(execSync).mockImplementation(() => { throw new Error(); });
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error();
+    });
 
     const cpSpy = vi.spyOn(fs, 'cpSync').mockImplementation((src, dest) => {
-        fs.writeFileSync(dest, 'wrong content');
+      fs.writeFileSync(dest, 'wrong content');
     });
 
     fs.writeFileSync(path.join(srcDir, 'file1.txt'), 'original content');
 
-    expect(() => syncDir(srcDir, destDir)).toThrow(/Validation failed: file1.txt size mismatch/);
+    expect(() => syncDir(srcDir, destDir)).toThrow(
+      /Validation failed: file1.txt size mismatch/,
+    );
     cpSpy.mockRestore();
   });
 
@@ -120,13 +142,25 @@ describe('syncDir utility', () => {
     // Mock validation to pass since spawnSync doesn't actually copy
     // We'll just check that it was called correctly.
     // Actually, we can just make it pass validation by manually copying.
-    vi.mocked(spawnSync).mockImplementation((cmd, args) => {
-        fs.cpSync(srcDir, destDir, { recursive: true });
-        return { status: 0 };
+    vi.mocked(spawnSync).mockImplementation(() => {
+      fs.cpSync(srcDir, destDir, { recursive: true });
+      return { status: 0 };
     });
 
     syncDir(srcDir, destDir, { exclude: ['results'] });
 
-    expect(spawnSync).toHaveBeenCalledWith('rclone', expect.arrayContaining(['copy', srcDir, destDir, '--exclude', '/results/**', '--exclude', '/results']), expect.anything());
+    expect(spawnSync).toHaveBeenCalledWith(
+      'rclone',
+      expect.arrayContaining([
+        'copy',
+        srcDir,
+        destDir,
+        '--exclude',
+        '/results/**',
+        '--exclude',
+        '/results',
+      ]),
+      expect.anything(),
+    );
   });
 });

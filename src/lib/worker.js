@@ -117,14 +117,17 @@ export async function startWorker(argv = process.argv) {
   const JOBS_DIR = options.jobsDir;
   const WORKSPACES_DIR = options.workspacesDir;
   const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
-  const VISIBILITY_TIMEOUT_MS = parseInt(options.visibilityTimeout || '0', 10) * 1000;
+  const VISIBILITY_TIMEOUT_MS =
+    parseInt(options.visibilityTimeout || '0', 10) * 1000;
 
   console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
   console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
   console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
   console.log(`JetStream Stream: ${STREAM}, Subject: ${SUBJECT}`);
   if (VISIBILITY_TIMEOUT_MS > 0) {
-    console.log(`Visibility timeout configured: ${VISIBILITY_TIMEOUT_MS / 1000}s`);
+    console.log(
+      `Visibility timeout configured: ${VISIBILITY_TIMEOUT_MS / 1000}s`,
+    );
   }
 
   const connectOptions = {
@@ -169,21 +172,23 @@ export async function startWorker(argv = process.argv) {
     }
 
     // Get the consumer
-    const consumer = await js.consumers.get(STREAM, WORKER_ID).catch(async () => {
+    const consumer = await js.consumers
+      .get(STREAM, WORKER_ID)
+      .catch(async () => {
         // If consumer doesn't exist, try to create it if it's not there.
         // In a real production environment, you might want this pre-configured.
         console.log(`Consumer ${WORKER_ID} not found, attempting to create...`);
         return await jsm.consumers.add(STREAM, {
-            durable_name: WORKER_ID,
-            ack_policy: AckPolicy.Explicit,
-            filter_subject: SUBJECT,
-            ack_wait: TIMEOUT_MINUTES * 60 * 1_000_000_000,
+          durable_name: WORKER_ID,
+          ack_policy: AckPolicy.Explicit,
+          filter_subject: SUBJECT,
+          ack_wait: TIMEOUT_MINUTES * 60 * 1_000_000_000,
         });
-    });
+      });
 
     console.log(`Waiting for next job on ${SUBJECT}...`);
     const messages = await consumer.fetch({ max_messages: 1, expires: 60000 });
-    
+
     let received = false;
     for await (const m of messages) {
       received = true;
@@ -208,10 +213,15 @@ export async function startWorker(argv = process.argv) {
       console.log(`Received job ${id}`);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.error(`Job ${id} timed out after ${TIMEOUT_MINUTES} minutes. Aborting...`);
-        controller.abort();
-      }, TIMEOUT_MINUTES * 60 * 1000);
+      const timeoutId = setTimeout(
+        () => {
+          console.error(
+            `Job ${id} timed out after ${TIMEOUT_MINUTES} minutes. Aborting...`,
+          );
+          controller.abort();
+        },
+        TIMEOUT_MINUTES * 60 * 1000,
+      );
 
       try {
         const result = await executeJob(
@@ -231,14 +241,13 @@ export async function startWorker(argv = process.argv) {
         );
 
         if (VISIBILITY_TIMEOUT_MS > 0) {
-          console.log(`Waiting ${VISIBILITY_TIMEOUT_MS / 1000}s for visibility...`);
+          console.log(
+            `Waiting ${VISIBILITY_TIMEOUT_MS / 1000}s for visibility...`,
+          );
           await sleep(VISIBILITY_TIMEOUT_MS);
         }
 
-        await nc.publish(
-          OUTPUT_SUBJECT,
-          jc.encode(resultPayload)
-        );
+        await nc.publish(OUTPUT_SUBJECT, jc.encode(resultPayload));
         console.log(`Result for job ${id} published to ${OUTPUT_SUBJECT}`);
 
         await m.ack();
@@ -248,23 +257,23 @@ export async function startWorker(argv = process.argv) {
       } catch (err) {
         clearTimeout(timeoutId);
         if (err.name === 'AbortError') {
-            console.error(`Job ${id} was aborted due to timeout.`);
+          console.error(`Job ${id} was aborted due to timeout.`);
         } else {
-            console.error(`Error executing job ${id}:`, err);
+          console.error(`Error executing job ${id}:`, err);
         }
         const errorPayload = createResultPayload(id, 'failed', 1);
-        errorPayload.error = err.name === 'AbortError' ? 'Job timed out' : err.message;
+        errorPayload.error =
+          err.name === 'AbortError' ? 'Job timed out' : err.message;
 
         if (VISIBILITY_TIMEOUT_MS > 0) {
-          console.log(`Waiting ${VISIBILITY_TIMEOUT_MS / 1000}s for visibility...`);
+          console.log(
+            `Waiting ${VISIBILITY_TIMEOUT_MS / 1000}s for visibility...`,
+          );
           await sleep(VISIBILITY_TIMEOUT_MS);
         }
 
-        await nc.publish(
-          OUTPUT_SUBJECT,
-          jc.encode(errorPayload)
-        );
-        
+        await nc.publish(OUTPUT_SUBJECT, jc.encode(errorPayload));
+
         await m.nak(); // Negative ack so it can be retried if configured
         await nc.close();
         process.exit(1);

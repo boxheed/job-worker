@@ -16,7 +16,7 @@ async function executeStep(command, logPath, cwd, signal) {
     if (signal?.aborted) {
       return reject(signal.reason);
     }
-    
+
     const logStream = fs.createWriteStream(logPath);
     let child;
 
@@ -98,7 +98,6 @@ async function executeStep(command, logPath, cwd, signal) {
     });
   });
 }
-
 
 /**
  * Executes a job by staging its source to a local workspace and running steps.
@@ -186,7 +185,12 @@ export async function executeJob(
 
       manifest.steps.push(stepResult);
 
-      const exitCode = await executeStep(stepCommand, logPath, workspaceDir, signal);
+      const exitCode = await executeStep(
+        stepCommand,
+        logPath,
+        workspaceDir,
+        signal,
+      );
       stepResult.durationMs = Date.now() - stepStartTime;
       stepResult.exitCode = exitCode;
 
@@ -227,7 +231,7 @@ export async function executeJob(
         const dirFd = fs.openSync(resultsDir, 'r');
         fs.fsyncSync(dirFd);
         fs.closeSync(dirFd);
-      } catch (dirErr) {
+      } catch {
         // Directory fsync is not supported on all filesystems, ignore failure
       }
     } catch (writeErr) {

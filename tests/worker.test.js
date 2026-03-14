@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { connect, JSONCodec, AckPolicy } from 'nats';
+import { connect, AckPolicy } from 'nats';
 import { executeJob } from '../src/lib/executor.js';
 import { startWorker, setupSignalHandlers } from '../src/lib/worker.js';
 
@@ -90,7 +90,7 @@ describe('Worker', () => {
         name: 'test-worker',
         user: 'test-user',
         pass: 'test-pass',
-      })
+      }),
     );
   });
 
@@ -118,10 +118,13 @@ describe('Worker', () => {
       expect.objectContaining({
         servers: 'nats://cli-broker:4222',
         name: 'cli-worker',
-      })
+      }),
     );
 
-    expect(mockJS.consumers.get).toHaveBeenCalledWith('CLI_STREAM', 'cli-worker');
+    expect(mockJS.consumers.get).toHaveBeenCalledWith(
+      'CLI_STREAM',
+      'cli-worker',
+    );
   });
 
   it('should create consumer if it does not exist', async () => {
@@ -165,7 +168,7 @@ describe('Worker', () => {
 
   it('should handle message, execute job, and exit', async () => {
     vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
-    
+
     const mockMsg = {
       data: Buffer.from(JSON.stringify({ id: 'job-123' })),
       ack: vi.fn().mockResolvedValue(undefined),
@@ -189,7 +192,7 @@ describe('Worker', () => {
 
     expect(mockNC.publish).toHaveBeenCalledWith(
       'test.results',
-      expect.any(Uint8Array)
+      expect.any(Uint8Array),
     );
 
     expect(mockMsg.ack).toHaveBeenCalled();
@@ -199,9 +202,11 @@ describe('Worker', () => {
 
   it('should handle message with steps and pass to executeJob', async () => {
     vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
-    
+
     const mockMsg = {
-      data: Buffer.from(JSON.stringify({ id: 'job-steps', steps: ['echo hello'] })),
+      data: Buffer.from(
+        JSON.stringify({ id: 'job-steps', steps: ['echo hello'] }),
+      ),
       ack: vi.fn().mockResolvedValue(undefined),
       term: vi.fn().mockResolvedValue(undefined),
     };
@@ -243,7 +248,7 @@ describe('Worker', () => {
 
   it('should handle execution error', async () => {
     vi.mocked(executeJob).mockRejectedValue(new Error('Test failure'));
-    
+
     const mockMsg = {
       data: Buffer.from(JSON.stringify({ id: 'job-fail' })),
       ack: vi.fn().mockResolvedValue(undefined),
@@ -260,7 +265,7 @@ describe('Worker', () => {
 
     expect(mockNC.publish).toHaveBeenCalledWith(
       'test.results',
-      expect.any(Uint8Array)
+      expect.any(Uint8Array),
     );
 
     expect(mockMsg.nak).toHaveBeenCalled();
