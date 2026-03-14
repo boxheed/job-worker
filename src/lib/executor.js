@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { syncDir } from './sync.js';
 
 /**
  * Executes a single step of a job.
@@ -15,7 +16,7 @@ async function executeStep(command, logPath, cwd, signal) {
     if (signal?.aborted) {
       return reject(signal.reason);
     }
-    
+
     const logStream = fs.createWriteStream(logPath);
     let child;
 
@@ -98,7 +99,6 @@ async function executeStep(command, logPath, cwd, signal) {
   });
 }
 
-
 /**
  * Executes a job by staging its source to a local workspace and running steps.
  * @param {string} jobsRoot - The root directory for job sources (Shared).
@@ -147,17 +147,7 @@ export async function executeJob(
     // 2. Stage files from Source to Workspace
     if (fs.existsSync(sourceDir) && fs.statSync(sourceDir).isDirectory()) {
       // Copy contents from sourceDir to workspaceDir (excluding 'results' if it exists there)
-      const entries = fs.readdirSync(sourceDir);
-      for (const entry of entries) {
-        if (entry === 'results') continue;
-        const src = path.join(sourceDir, entry);
-        const dest = path.join(workspaceDir, entry);
-        try {
-          fs.cpSync(src, dest, { recursive: true });
-        } catch (cpErr) {
-          console.error(`Failed to copy ${src} to ${dest}:`, cpErr);
-        }
-      }
+      syncDir(sourceDir, workspaceDir, { exclude: ['results'] });
     }
 
     process.chdir(workspaceDir);
@@ -195,7 +185,12 @@ export async function executeJob(
 
       manifest.steps.push(stepResult);
 
-      const exitCode = await executeStep(stepCommand, logPath, workspaceDir, signal);
+      const exitCode = await executeStep(
+        stepCommand,
+        logPath,
+        workspaceDir,
+        signal,
+      );
       stepResult.durationMs = Date.now() - stepStartTime;
       stepResult.exitCode = exitCode;
 
@@ -211,17 +206,7 @@ export async function executeJob(
     manifest.status = overallExitCode === 0 ? 'success' : 'failed';
 
     // 4. Final Sync: Sync new/modified files back to results (except what's already there)
-    const workspaceEntries = fs.readdirSync(workspaceDir);
-    for (const entry of workspaceEntries) {
-      const src = path.join(workspaceDir, entry);
-      const dest = path.join(resultsDir, entry);
-
-      // Don't overwrite job.json if it was a source file, unless you want that.
-      // For now, copy everything new/modified.
-      if (!fs.existsSync(dest)) {
-        fs.cpSync(src, dest, { recursive: true });
-      }
-    }
+    syncDir(workspaceDir, resultsDir, { overwrite: false });
   } catch (err) {
     manifest.status = 'failed';
     overallExitCode = overallExitCode || 1;
@@ -246,7 +231,7 @@ export async function executeJob(
         const dirFd = fs.openSync(resultsDir, 'r');
         fs.fsyncSync(dirFd);
         fs.closeSync(dirFd);
-      } catch (dirErr) {
+      } catch {
         // Directory fsync is not supported on all filesystems, ignore failure
       }
     } catch (writeErr) {
