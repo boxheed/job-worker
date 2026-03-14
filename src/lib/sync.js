@@ -84,6 +84,7 @@ export function syncDir(src, dest, options = {}) {
     if (result.status !== 0) {
       throw new Error(`rclone copy failed with exit code ${result.status}`);
     }
+    spawnSync('ls', [dest, '-altr'], { stdio: 'inherit' });
   } else {
     // Fallback to fs.cpSync
     const entries = fs.readdirSync(src);
