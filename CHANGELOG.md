@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.4](https://github.com/boxheed/job-worker/compare/v0.3.3...v0.3.4) (2026-03-14)
+
+
+### Features
+
+* make file syncing more robust using rclone and validation ([d7548c2](https://github.com/boxheed/job-worker/commit/d7548c2ec58be4c0ee07d904b125057857407e8b))
+
 ### [0.3.3](https://github.com/boxheed/job-worker/compare/v0.3.2...v0.3.3) (2026-03-13)
 
 
