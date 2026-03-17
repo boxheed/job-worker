@@ -231,6 +231,7 @@ export async function startWorker(argv = process.argv) {
         TIMEOUT_MINUTES * 60 * 1000,
       );
 
+      console.time(`Job ${id} Execution Time`);
       try {
         const result = await executeJob(
           JOBS_DIR,
@@ -240,6 +241,7 @@ export async function startWorker(argv = process.argv) {
           controller.signal,
           HOOKS_DIR,
         );
+        console.timeEnd(`Job ${id} Execution Time`);
         clearTimeout(timeoutId);
         console.log(`Job ${id} finished with status ${result.status}`);
 
@@ -257,7 +259,7 @@ export async function startWorker(argv = process.argv) {
         }
 
         await nc.publish(OUTPUT_SUBJECT, jc.encode(resultPayload));
-        console.log(`Result for job ${id} published to ${OUTPUT_SUBJECT}`);
+        console.log(`Result for job ${id} published to ${OUTPUT_SUBJECT}:`, JSON.stringify(resultPayload));
 
         await m.ack();
         console.log('Message acknowledged. Disconnecting and exiting...');

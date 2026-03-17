@@ -146,8 +146,27 @@ export async function executeJob(
     // 0. Pre-stage Hook
     await runHook(hooksDir, 'pre-stage', context);
 
-    // Ensure directories exist
-    fs.mkdirSync(sourceDir, { recursive: true });
+    // Wait for source directory to be visible (NFS eventual consistency)
+    let attempts = 0;
+    const maxAttempts = 10;
+    const delay = 500;
+    
+    while (attempts < maxAttempts) {
+        if (fs.existsSync(sourceDir) && fs.readdirSync(sourceDir).length > 0) {
+            break;
+        }
+        attempts++;
+        if (attempts < maxAttempts) {
+            console.log(`Source directory ${sourceDir} not visible or empty. Retrying in ${delay}ms... (Attempt ${attempts}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+
+    if (!fs.existsSync(sourceDir)) {
+      throw new Error(`Source directory ${sourceDir} not found after ${maxAttempts * delay}ms`);
+    }
+
+    // Ensure results directory exists
     fs.mkdirSync(resultsDir, { recursive: true });
 
     // 1. Prepare Workspace
