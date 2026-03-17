@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.6](https://github.com/boxheed/job-worker/compare/v0.3.5...v0.3.6) (2026-03-17)
+
+
+### Features
+
+* changed sync logic order ([a301ffd](https://github.com/boxheed/job-worker/commit/a301ffd36ffee05798d5102c2e529e2dce327e32))
+
 ### [0.3.5](https://github.com/boxheed/job-worker/compare/v0.3.4...v0.3.5) (2026-03-14)
 
 

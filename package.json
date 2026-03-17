@@ -1,6 +1,6 @@
 {
   "name": "nats-job-worker",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "CLI package for NATS JetStream job worker",
   "type": "module",
   "main": "src/index.js",
