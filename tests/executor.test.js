@@ -35,7 +35,7 @@ describe('executeJob (Managed Workspace)', () => {
       JSON.stringify(jobConfig),
     );
 
-    const result = await executeJob(jobsRoot, workspacesRoot, jobId);
+    const result = await executeJob(jobsRoot, workspacesRoot, jobId, null, null, null, { maxAttempts: 1, delay: 0 });
 
     expect(result.status).toBe('success');
     expect(result.exitCode).toBe(0);
@@ -66,7 +66,7 @@ describe('executeJob (Managed Workspace)', () => {
     const sourceDir = path.join(jobsRoot, jobId);
     fs.mkdirSync(sourceDir, { recursive: true });
 
-    const result = await executeJob(jobsRoot, workspacesRoot, jobId);
+    const result = await executeJob(jobsRoot, workspacesRoot, jobId, null, null, null, { maxAttempts: 1, delay: 0 });
     expect(result.status).toBe('failed');
     expect(result.exitCode).toBe(1);
 
@@ -92,6 +92,9 @@ describe('executeJob (Managed Workspace)', () => {
       workspacesRoot,
       jobId,
       overrideConfig,
+      null,
+      null,
+      { maxAttempts: 1, delay: 0 },
     );
 
     expect(result.status).toBe('success');
@@ -120,7 +123,7 @@ describe('executeJob (Managed Workspace)', () => {
     fs.writeFileSync(hookPath, `#!/bin/bash\necho $JOB_ID > ${markerPath}`);
     fs.chmodSync(hookPath, '755');
 
-    await executeJob(jobsRoot, workspacesRoot, jobId, null, null, hooksDir);
+    await executeJob(jobsRoot, workspacesRoot, jobId, null, null, hooksDir, { maxAttempts: 1, delay: 0 });
 
     expect(fs.existsSync(markerPath)).toBe(true);
     expect(fs.readFileSync(markerPath, 'utf8').trim()).toBe(jobId);

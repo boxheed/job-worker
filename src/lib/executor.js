@@ -116,6 +116,7 @@ export async function executeJob(
   overrideConfig = null,
   signal = null,
   hooksDir = null,
+  retryConfig = { maxAttempts: 10, delay: 500 },
 ) {
   const originalCwd = process.cwd();
   const startTime = new Date().toISOString();
@@ -148,8 +149,7 @@ export async function executeJob(
 
     // Wait for source directory to be visible (NFS eventual consistency)
     let attempts = 0;
-    const maxAttempts = 10;
-    const delay = 500;
+    const { maxAttempts, delay } = retryConfig;
     
     while (attempts < maxAttempts) {
         if (fs.existsSync(sourceDir) && fs.readdirSync(sourceDir).length > 0) {
