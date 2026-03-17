@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { syncDir } from './sync.js';
+import { runHook } from './hooks.js';
 
 /**
  * Executes a single step of a job.
@@ -114,6 +115,7 @@ export async function executeJob(
   id,
   overrideConfig = null,
   signal = null,
+  hooksDir = null,
 ) {
   const originalCwd = process.cwd();
   const startTime = new Date().toISOString();
@@ -133,7 +135,17 @@ export async function executeJob(
   const workspaceDir = path.resolve(workspacesRoot, id);
   const resultsDir = path.resolve(sourceDir, 'results');
 
+  const context = {
+    id,
+    workspaceDir,
+    sourceDir,
+    resultsDir,
+  };
+
   try {
+    // 0. Pre-stage Hook
+    await runHook(hooksDir, 'pre-stage', context);
+
     // Ensure directories exist
     fs.mkdirSync(sourceDir, { recursive: true });
     fs.mkdirSync(resultsDir, { recursive: true });
@@ -149,6 +161,9 @@ export async function executeJob(
       // Copy contents from sourceDir to workspaceDir (excluding 'results' if it exists there)
       syncDir(sourceDir, workspaceDir, { exclude: ['results'] });
     }
+
+    // 2.1 Post-stage Hook
+    await runHook(hooksDir, 'post-stage', context);
 
     process.chdir(workspaceDir);
 
@@ -204,39 +219,41 @@ export async function executeJob(
     }
 
     manifest.status = overallExitCode === 0 ? 'success' : 'failed';
+    context.status = manifest.status;
+    context.exitCode = overallExitCode;
 
-    // 4. Final Sync: Sync new/modified files back to results (except what's already there)
-    syncDir(workspaceDir, resultsDir, { overwrite: false });
+    // 3.1 Pre-sync Hook
+    await runHook(hooksDir, 'pre-sync', context);
   } catch (err) {
     manifest.status = 'failed';
     overallExitCode = overallExitCode || 1;
     manifest.error = err.message;
+    context.status = 'failed';
+    context.exitCode = overallExitCode;
+
+    await runHook(hooksDir, 'on-error', context).catch(() => {});
   } finally {
     const endTime = new Date();
     manifest.timing.end = endTime.toISOString();
     manifest.timing.durationMs =
       endTime.getTime() - new Date(startTime).getTime();
 
-    // Write the result.json manifest directly to the shared results folder
+    // 4. Write manifest and perform Final Sync
     try {
-      const resultPath = path.join(resultsDir, 'result.json');
-      const data = JSON.stringify(manifest, null, 2);
-      const fd = fs.openSync(resultPath, 'w');
-      fs.writeSync(fd, data);
-      fs.fsyncSync(fd);
-      fs.closeSync(fd);
+      if (fs.existsSync(workspaceDir)) {
+        // Write the result.json manifest to the LOCAL workspace first
+        const resultPath = path.join(workspaceDir, 'result.json');
+        fs.writeFileSync(resultPath, JSON.stringify(manifest, null, 2));
 
-      // Attempt to fsync the directory to ensure metadata visibility on the shared drive
-      try {
-        const dirFd = fs.openSync(resultsDir, 'r');
-        fs.fsyncSync(dirFd);
-        fs.closeSync(dirFd);
-      } catch {
-        // Directory fsync is not supported on all filesystems, ignore failure
+        // Sync everything (including result.json) back to the shared results folder
+        syncDir(workspaceDir, resultsDir, { overwrite: false });
       }
-    } catch (writeErr) {
-      console.error('Failed to write result.json:', writeErr);
+    } catch (syncErr) {
+      console.error('Failed to sync results to shared drive:', syncErr);
     }
+
+    // 5. Post-sync Hook
+    await runHook(hooksDir, 'post-sync', context).catch(() => {});
 
     // Cleanup Workspace
     try {

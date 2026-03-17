@@ -188,6 +188,7 @@ describe('Worker', () => {
       'job-123',
       null,
       expect.any(AbortSignal),
+      undefined,
     );
 
     expect(mockNC.publish).toHaveBeenCalledWith(
@@ -224,6 +225,7 @@ describe('Worker', () => {
       'job-steps',
       { steps: ['echo hello'] },
       expect.any(AbortSignal),
+      undefined,
     );
   });
 

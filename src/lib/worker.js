@@ -90,6 +90,11 @@ export async function startWorker(argv = process.argv) {
       process.env.NATS_VISIBILITY_TIMEOUT || '0',
     )
     .option(
+      '-H, --hooks-dir <path>',
+      'Directory containing lifecycle hook scripts',
+      process.env.NATS_HOOKS_DIR,
+    )
+    .option(
       '-o, --timeout <minutes>',
       'Job execution timeout in minutes',
       process.env.JOB_TIMEOUT || '30',
@@ -101,7 +106,7 @@ export async function startWorker(argv = process.argv) {
 
   if (options.dryRun) {
     try {
-      await handleDryRun(options.jobsDir, options.workspacesDir);
+      await handleDryRun(options.jobsDir, options.workspacesDir, options.hooksDir);
     } catch (err) {
       console.error('Dry run failed:', err);
       process.exit(1);
@@ -113,17 +118,20 @@ export async function startWorker(argv = process.argv) {
   const WORKER_ID = options.id;
   const STREAM = options.stream;
   const SUBJECT = options.inputSubject;
-  const OUTPUT_SUBJECT = options.outputSubject;
-  const JOBS_DIR = options.jobsDir;
-  const WORKSPACES_DIR = options.workspacesDir;
-  const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
-  const VISIBILITY_TIMEOUT_MS =
-    parseInt(options.visibilityTimeout || '0', 10) * 1000;
-
-  console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
-  console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
-  console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
-  console.log(`JetStream Stream: ${STREAM}, Subject: ${SUBJECT}`);
+    const OUTPUT_SUBJECT = options.outputSubject;
+    const JOBS_DIR = options.jobsDir;
+    const WORKSPACES_DIR = options.workspacesDir;
+    const HOOKS_DIR = options.hooksDir;
+    const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
+    const VISIBILITY_TIMEOUT_MS = parseInt(options.visibilityTimeout || '0', 10) * 1000;
+  
+    console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
+    console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
+    console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
+    if (HOOKS_DIR) {
+      console.log(`Hooks directory: ${path.resolve(HOOKS_DIR)}`);
+    }
+    console.log(`JetStream Stream: ${STREAM}, Subject: ${SUBJECT}`);
   if (VISIBILITY_TIMEOUT_MS > 0) {
     console.log(
       `Visibility timeout configured: ${VISIBILITY_TIMEOUT_MS / 1000}s`,
@@ -230,6 +238,7 @@ export async function startWorker(argv = process.argv) {
           id,
           payload.steps ? { steps: payload.steps } : null,
           controller.signal,
+          HOOKS_DIR,
         );
         clearTimeout(timeoutId);
         console.log(`Job ${id} finished with status ${result.status}`);
@@ -297,7 +306,7 @@ export async function startWorker(argv = process.argv) {
 /**
  * Handles dry-run mode.
  */
-async function handleDryRun(jobsDir, workspacesDir) {
+async function handleDryRun(jobsDir, workspacesDir, hooksDir) {
   console.log('Dry run mode enabled. Reading test-payload.json...');
   const payloadPath = path.resolve('test-payload.json');
   if (!fs.existsSync(payloadPath)) {
@@ -319,6 +328,8 @@ async function handleDryRun(jobsDir, workspacesDir) {
     workspacesDir,
     id,
     steps ? { steps } : null,
+    null,
+    hooksDir,
   );
 
   const resultPayload = createResultPayload(id, result.status, result.exitCode);

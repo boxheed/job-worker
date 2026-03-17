@@ -90,7 +90,39 @@ After execution, the shared directory will contain a `results/` folder:
 | `-k, --input-subject` | `NATS_INPUT_SUBJECT` | `jobs.pending` | NATS Subject to consume from |
 | `-r, --output-subject` | `NATS_OUTPUT_SUBJECT` | `jobs.results` | NATS Subject to publish results to |
 | `-v, --visibility-timeout` | `NATS_VISIBILITY_TIMEOUT` | `0` | Delay in seconds before publishing the result to NATS |
+| `-H, --hooks-dir` | `NATS_HOOKS_DIR` | - | Directory containing lifecycle hook scripts |
 | `--dry-run` | - | - | Run using local `test-payload.json` |
+
+## Lifecycle Hooks
+
+The worker can execute external scripts at specific lifecycle points. This is useful for custom synchronization, notifications, or environment setup.
+
+To use hooks, create a directory and point to it using `--hooks-dir`. The worker looks for executable files with the following names:
+
+| Hook Name | When it runs |
+| --- | --- |
+| `pre-stage` | Before workspace preparation. |
+| `post-stage` | After source files are copied to local workspace. |
+| `pre-sync` | After execution steps, before copying results back. |
+| `post-sync` | After results and manifest are written to shared drive. |
+| `on-error` | If the job fails at any point. |
+
+### Hook Environment Variables
+Each hook receives the following context via environment variables:
+- `JOB_ID`: The unique ID of the job.
+- `JOB_STATUS`: `success` or `failed`.
+- `JOB_EXIT_CODE`: The numeric exit code.
+- `JOB_WORKSPACE_DIR`: Path to the local execution workspace.
+- `JOB_SOURCE_DIR`: Path to the shared source directory.
+- `JOB_RESULTS_DIR`: Path to the shared results directory.
+
+### Example `post-sync` Hook
+```bash
+#!/bin/bash
+# Ensure visibility on remote NFS clients
+echo "Ensuring visibility for $JOB_ID..."
+ls -R $JOB_RESULTS_DIR > /dev/null
+```
 
 ### Reliability & Scaling
 

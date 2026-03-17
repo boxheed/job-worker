@@ -98,6 +98,8 @@ describe('Dry Run Mode', () => {
       './workspaces',
       'test-dry-run',
       { steps: ['echo hello'] },
+      null,
+      undefined,
     );
     expect(process.exit).toHaveBeenCalledWith(0);
   });
@@ -133,6 +135,8 @@ describe('Dry Run Mode', () => {
       {
         steps: ['echo hello'],
       },
+      null,
+      undefined,
     );
     expect(process.exit).toHaveBeenCalledWith(0);
   });
