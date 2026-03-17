@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.7](https://github.com/boxheed/job-worker/compare/v0.3.6...v0.3.7) (2026-03-17)
+
+
+### Bug Fixes
+
+* resiliency on file reading ([1466cba](https://github.com/boxheed/job-worker/commit/1466cba8fd349d879d095a5e5033dc67e2417331))
+* tests ([2f38625](https://github.com/boxheed/job-worker/commit/2f3862533c53b988f6f104a523a7dc515cc10e9a))
+
 ### [0.3.6](https://github.com/boxheed/job-worker/compare/v0.3.5...v0.3.6) (2026-03-17)
 
 
