@@ -36,8 +36,16 @@ function getFileStats(dir, exclude = []) {
       if (entry.isDirectory()) {
         traverse(fullPath, relPath);
       } else if (entry.isFile()) {
-        const s = fs.statSync(fullPath);
-        stats.set(relPath, s.size);
+        try {
+          const s = fs.statSync(fullPath);
+          stats.set(relPath, s.size);
+        } catch (statErr) {
+          if (statErr.code === 'ENOENT') {
+            console.warn(`File ${fullPath} disappeared during sync validation, skipping.`);
+          } else {
+            throw statErr;
+          }
+        }
       }
     }
   };

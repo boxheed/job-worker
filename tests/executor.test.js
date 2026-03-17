@@ -99,4 +99,34 @@ describe('executeJob (Managed Workspace)', () => {
     const log0 = fs.readFileSync(path.join(resultsDir, 'step_0.log'), 'utf8');
     expect(log0).toContain('override');
   });
+
+  it('should execute lifecycle hooks', async () => {
+    const jobId = 'test-hooks';
+    const sourceDir = path.join(jobsRoot, jobId);
+    fs.mkdirSync(sourceDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(sourceDir, 'job.json'),
+      JSON.stringify({ steps: ['echo "hello"'] }),
+    );
+
+    const hooksDir = path.join(os.tmpdir(), `hooks-${Date.now()}`);
+    fs.mkdirSync(hooksDir, { recursive: true });
+
+    // Create a mock post-sync hook
+    const hookPath = path.join(hooksDir, 'post-sync');
+    const markerPath = path.join(os.tmpdir(), `hook-marker-${Date.now()}`);
+    
+    // Create a script that writes to a marker file so we can verify execution
+    fs.writeFileSync(hookPath, `#!/bin/bash\necho $JOB_ID > ${markerPath}`);
+    fs.chmodSync(hookPath, '755');
+
+    await executeJob(jobsRoot, workspacesRoot, jobId, null, null, hooksDir);
+
+    expect(fs.existsSync(markerPath)).toBe(true);
+    expect(fs.readFileSync(markerPath, 'utf8').trim()).toBe(jobId);
+
+    // Cleanup
+    fs.rmSync(hooksDir, { recursive: true, force: true });
+    if (fs.existsSync(markerPath)) fs.unlinkSync(markerPath);
+  });
 });

@@ -229,6 +229,28 @@ describe('Worker', () => {
     );
   });
 
+  it('should wait for visibility timeout before publishing', async () => {
+    vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
+    
+    const mockMsg = {
+      data: Buffer.from(JSON.stringify({ id: 'job-delay' })),
+      ack: vi.fn().mockResolvedValue(undefined),
+      term: vi.fn().mockResolvedValue(undefined),
+    };
+
+    async function* singleMessageGenerator() {
+      yield mockMsg;
+    }
+    mockConsumer.fetch.mockResolvedValue(singleMessageGenerator());
+
+    const startTime = Date.now();
+    await startWorker(['node', 'worker.js', '--visibility-timeout', '1']);
+    const duration = Date.now() - startTime;
+
+    expect(duration).toBeGreaterThanOrEqual(1000);
+    expect(mockNC.publish).toHaveBeenCalled();
+  });
+
   it('should exit if receiving payload with missing id', async () => {
     const mockMsg = {
       data: Buffer.from(JSON.stringify({ some: 'other field' })),
