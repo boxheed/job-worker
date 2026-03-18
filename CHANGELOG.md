@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.9](https://github.com/boxheed/job-worker/compare/v0.3.8...v0.3.9) (2026-03-18)
+
+
+### Features
+
+* separate nats request and response streams ([07f5b77](https://github.com/boxheed/job-worker/commit/07f5b77876d03954fa2dd01418d212e71a31a1f7))
+* separate nats request and response streams ([9f1cf82](https://github.com/boxheed/job-worker/commit/9f1cf8217e8f541621a2a48d4551ee4ee8b37e0e))
+
 ### [0.3.8](https://github.com/boxheed/job-worker/compare/v0.3.7...v0.3.8) (2026-03-17)
 
 ### [0.3.7](https://github.com/boxheed/job-worker/compare/v0.3.6...v0.3.7) (2026-03-17)
