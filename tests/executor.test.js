@@ -35,7 +35,15 @@ describe('executeJob (Managed Workspace)', () => {
       JSON.stringify(jobConfig),
     );
 
-    const result = await executeJob(jobsRoot, workspacesRoot, jobId, null, null, null, { maxAttempts: 1, delay: 0 });
+    const result = await executeJob(
+      jobsRoot,
+      workspacesRoot,
+      jobId,
+      null,
+      null,
+      null,
+      { maxAttempts: 1, delay: 0 },
+    );
 
     expect(result.status).toBe('success');
     expect(result.exitCode).toBe(0);
@@ -66,7 +74,15 @@ describe('executeJob (Managed Workspace)', () => {
     const sourceDir = path.join(jobsRoot, jobId);
     fs.mkdirSync(sourceDir, { recursive: true });
 
-    const result = await executeJob(jobsRoot, workspacesRoot, jobId, null, null, null, { maxAttempts: 1, delay: 0 });
+    const result = await executeJob(
+      jobsRoot,
+      workspacesRoot,
+      jobId,
+      null,
+      null,
+      null,
+      { maxAttempts: 1, delay: 0 },
+    );
     expect(result.status).toBe('failed');
     expect(result.exitCode).toBe(1);
 
@@ -118,12 +134,15 @@ describe('executeJob (Managed Workspace)', () => {
     // Create a mock post-sync hook
     const hookPath = path.join(hooksDir, 'post-sync');
     const markerPath = path.join(os.tmpdir(), `hook-marker-${Date.now()}`);
-    
+
     // Create a script that writes to a marker file so we can verify execution
     fs.writeFileSync(hookPath, `#!/bin/bash\necho $JOB_ID > ${markerPath}`);
     fs.chmodSync(hookPath, '755');
 
-    await executeJob(jobsRoot, workspacesRoot, jobId, null, null, hooksDir, { maxAttempts: 1, delay: 0 });
+    await executeJob(jobsRoot, workspacesRoot, jobId, null, null, hooksDir, {
+      maxAttempts: 1,
+      delay: 0,
+    });
 
     expect(fs.existsSync(markerPath)).toBe(true);
     expect(fs.readFileSync(markerPath, 'utf8').trim()).toBe(jobId);

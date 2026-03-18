@@ -41,7 +41,9 @@ function getFileStats(dir, exclude = []) {
           stats.set(relPath, s.size);
         } catch (statErr) {
           if (statErr.code === 'ENOENT') {
-            console.warn(`File ${fullPath} disappeared during sync validation, skipping.`);
+            console.warn(
+              `File ${fullPath} disappeared during sync validation, skipping.`,
+            );
           } else {
             throw statErr;
           }

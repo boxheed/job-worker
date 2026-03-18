@@ -86,7 +86,8 @@ After execution, the shared directory will contain a `results/` folder:
 | `-i, --id` | `WORKER_ID` | `worker-01` | Unique Worker ID (Durable) |
 | `-j, --jobs-dir` | `NATS_JOBS_DIR` | `./jobs` | Root for job sources (Shared) |
 | `-w, --workspaces-dir` | `NATS_WORKSPACES_DIR` | `./workspaces` | Root for execution (Local) |
-| `-s, --stream` | `NATS_STREAM` | `JOBS` | JetStream Stream Name |
+| `-s, --stream` | `NATS_STREAM` | `AGENT_JOBS` | JetStream Input Stream Name |
+| `-S, --output-stream` | `NATS_OUTPUT_STREAM` | `AGENT_RESULTS` | JetStream Output Stream Name |
 | `-k, --input-subject` | `NATS_INPUT_SUBJECT` | `jobs.pending` | NATS Subject to consume from |
 | `-r, --output-subject` | `NATS_OUTPUT_SUBJECT` | `jobs.results` | NATS Subject to publish results to |
 | `-v, --visibility-timeout` | `NATS_VISIBILITY_TIMEOUT` | `0` | Delay in seconds before publishing the result to NATS |
@@ -134,7 +135,7 @@ To scale workers, simply run multiple instances with the **same Durable Name** (
 
 Example:
 ```bash
-nats-fs-worker --id worker-pool --stream JOBS --input-subject jobs.pending
+nats-fs-worker --id worker-pool --stream AGENT_JOBS --input-subject jobs.pending
 ```
 
 ### Dry Run Mode

@@ -31,6 +31,7 @@ describe('Worker', () => {
     vi.stubEnv('NATS_USERNAME', 'test-user');
     vi.stubEnv('NATS_PASSWORD', 'test-pass');
     vi.stubEnv('NATS_STREAM', 'TEST_STREAM');
+    vi.stubEnv('NATS_OUTPUT_STREAM', 'TEST_OUTPUT_STREAM');
     vi.stubEnv('NATS_INPUT_SUBJECT', 'test.jobs');
     vi.stubEnv('NATS_OUTPUT_SUBJECT', 'test.results');
     vi.stubEnv('NATS_JOBS_DIR', './test-jobs');
@@ -127,6 +128,25 @@ describe('Worker', () => {
     );
   });
 
+  it('should create output stream if it does not exist', async () => {
+    mockConsumer.fetch.mockResolvedValue(emptyGenerator());
+    const jsm = await mockNC.jetstreamManager();
+    jsm.streams.info.mockImplementation((name) => {
+      if (name === 'TEST_OUTPUT_STREAM') {
+        return Promise.reject(new Error('stream not found'));
+      }
+      return Promise.resolve({});
+    });
+
+    await startWorker(['node', 'worker.js']);
+
+    expect(jsm.streams.info).toHaveBeenCalledWith('TEST_OUTPUT_STREAM');
+    expect(jsm.streams.add).toHaveBeenCalledWith({
+      name: 'TEST_OUTPUT_STREAM',
+      subjects: ['test.results'],
+    });
+  });
+
   it('should create consumer if it does not exist', async () => {
     mockConsumer.fetch.mockResolvedValue(emptyGenerator());
     mockJS.consumers.get.mockRejectedValue(new Error('consumer not found'));
@@ -143,10 +163,15 @@ describe('Worker', () => {
     });
   });
 
-  it('should create stream if it does not exist', async () => {
+  it('should create input stream if it does not exist', async () => {
     mockConsumer.fetch.mockResolvedValue(emptyGenerator());
     const jsm = await mockNC.jetstreamManager();
-    jsm.streams.info.mockRejectedValue(new Error('stream not found'));
+    jsm.streams.info.mockImplementation((name) => {
+      if (name === 'TEST_STREAM') {
+        return Promise.reject(new Error('stream not found'));
+      }
+      return Promise.resolve({});
+    });
 
     await startWorker(['node', 'worker.js']);
 
@@ -231,7 +256,7 @@ describe('Worker', () => {
 
   it('should wait for visibility timeout before publishing', async () => {
     vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
-    
+
     const mockMsg = {
       data: Buffer.from(JSON.stringify({ id: 'job-delay' })),
       ack: vi.fn().mockResolvedValue(undefined),
