@@ -13,7 +13,7 @@ export async function runHook(hooksDir, hookName, context) {
   if (!hooksDir) return;
 
   const hookPath = path.resolve(hooksDir, hookName);
-  
+
   // Check if hook exists and is executable
   if (!fs.existsSync(hookPath)) {
     return;

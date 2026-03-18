@@ -111,7 +111,11 @@ export async function startWorker(argv = process.argv) {
 
   if (options.dryRun) {
     try {
-      await handleDryRun(options.jobsDir, options.workspacesDir, options.hooksDir);
+      await handleDryRun(
+        options.jobsDir,
+        options.workspacesDir,
+        options.hooksDir,
+      );
     } catch (err) {
       console.error('Dry run failed:', err);
       process.exit(1);
@@ -124,21 +128,24 @@ export async function startWorker(argv = process.argv) {
   const STREAM = options.stream;
   const OUTPUT_STREAM = options.outputStream;
   const SUBJECT = options.inputSubject;
-    const OUTPUT_SUBJECT = options.outputSubject;
-    const JOBS_DIR = options.jobsDir;
-    const WORKSPACES_DIR = options.workspacesDir;
-    const HOOKS_DIR = options.hooksDir;
-    const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
-    const VISIBILITY_TIMEOUT_MS = parseInt(options.visibilityTimeout || '0', 10) * 1000;
-  
-    console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
-    console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
-    console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
-    if (HOOKS_DIR) {
-      console.log(`Hooks directory: ${path.resolve(HOOKS_DIR)}`);
-    }
-    console.log(`JetStream Input Stream: ${STREAM}, Subject: ${SUBJECT}`);
-    console.log(`JetStream Output Stream: ${OUTPUT_STREAM}, Subject: ${OUTPUT_SUBJECT}`);
+  const OUTPUT_SUBJECT = options.outputSubject;
+  const JOBS_DIR = options.jobsDir;
+  const WORKSPACES_DIR = options.workspacesDir;
+  const HOOKS_DIR = options.hooksDir;
+  const TIMEOUT_MINUTES = parseInt(options.timeout, 10);
+  const VISIBILITY_TIMEOUT_MS =
+    parseInt(options.visibilityTimeout || '0', 10) * 1000;
+
+  console.log(`Starting worker ${WORKER_ID} connecting to ${NATS_URL}...`);
+  console.log(`Jobs directory: ${path.resolve(JOBS_DIR)}`);
+  console.log(`Workspaces directory: ${path.resolve(WORKSPACES_DIR)}`);
+  if (HOOKS_DIR) {
+    console.log(`Hooks directory: ${path.resolve(HOOKS_DIR)}`);
+  }
+  console.log(`JetStream Input Stream: ${STREAM}, Subject: ${SUBJECT}`);
+  console.log(
+    `JetStream Output Stream: ${OUTPUT_STREAM}, Subject: ${OUTPUT_SUBJECT}`,
+  );
   if (VISIBILITY_TIMEOUT_MS > 0) {
     console.log(
       `Visibility timeout configured: ${VISIBILITY_TIMEOUT_MS / 1000}s`,
@@ -275,7 +282,10 @@ export async function startWorker(argv = process.argv) {
         }
 
         await nc.publish(OUTPUT_SUBJECT, jc.encode(resultPayload));
-        console.log(`Result for job ${id} published to ${OUTPUT_SUBJECT}:`, JSON.stringify(resultPayload));
+        console.log(
+          `Result for job ${id} published to ${OUTPUT_SUBJECT}:`,
+          JSON.stringify(resultPayload),
+        );
 
         await m.ack();
         console.log('Message acknowledged. Disconnecting and exiting...');

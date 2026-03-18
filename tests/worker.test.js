@@ -256,7 +256,7 @@ describe('Worker', () => {
 
   it('should wait for visibility timeout before publishing', async () => {
     vi.mocked(executeJob).mockResolvedValue({ status: 'success', exitCode: 0 });
-    
+
     const mockMsg = {
       data: Buffer.from(JSON.stringify({ id: 'job-delay' })),
       ack: vi.fn().mockResolvedValue(undefined),
