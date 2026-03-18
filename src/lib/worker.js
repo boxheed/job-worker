@@ -71,8 +71,13 @@ export async function startWorker(argv = process.argv) {
     )
     .option(
       '-s, --stream <stream>',
-      'NATS JetStream Stream Name',
-      process.env.NATS_STREAM || 'JOBS',
+      'NATS JetStream Input Stream Name',
+      process.env.NATS_STREAM || 'AGENT_JOBS',
+    )
+    .option(
+      '-S, --output-stream <stream>',
+      'NATS JetStream Output Stream Name',
+      process.env.NATS_OUTPUT_STREAM || 'AGENT_RESULTS',
     )
     .option(
       '-k, --input-subject <subject>',
@@ -117,6 +122,7 @@ export async function startWorker(argv = process.argv) {
   const NATS_URL = options.url;
   const WORKER_ID = options.id;
   const STREAM = options.stream;
+  const OUTPUT_STREAM = options.outputStream;
   const SUBJECT = options.inputSubject;
     const OUTPUT_SUBJECT = options.outputSubject;
     const JOBS_DIR = options.jobsDir;
@@ -131,7 +137,8 @@ export async function startWorker(argv = process.argv) {
     if (HOOKS_DIR) {
       console.log(`Hooks directory: ${path.resolve(HOOKS_DIR)}`);
     }
-    console.log(`JetStream Stream: ${STREAM}, Subject: ${SUBJECT}`);
+    console.log(`JetStream Input Stream: ${STREAM}, Subject: ${SUBJECT}`);
+    console.log(`JetStream Output Stream: ${OUTPUT_STREAM}, Subject: ${OUTPUT_SUBJECT}`);
   if (VISIBILITY_TIMEOUT_MS > 0) {
     console.log(
       `Visibility timeout configured: ${VISIBILITY_TIMEOUT_MS / 1000}s`,
@@ -164,18 +171,27 @@ export async function startWorker(argv = process.argv) {
   try {
     const jsm = await nc.jetstreamManager();
 
-    // Ensure the stream exists
-    try {
-      await jsm.streams.info(STREAM);
-    } catch (err) {
-      if (err.message.includes('stream not found')) {
-        console.log(`Stream ${STREAM} not found, attempting to create...`);
-        await jsm.streams.add({
-          name: STREAM,
-          subjects: [SUBJECT],
-        });
-      } else {
-        throw err;
+    // Ensure the streams exist
+    const streamsToVerify = [
+      { name: STREAM, subjects: [SUBJECT] },
+      { name: OUTPUT_STREAM, subjects: [OUTPUT_SUBJECT] },
+    ];
+
+    for (const streamCfg of streamsToVerify) {
+      try {
+        await jsm.streams.info(streamCfg.name);
+      } catch (err) {
+        if (err.message.includes('stream not found')) {
+          console.log(
+            `Stream ${streamCfg.name} not found, attempting to create...`,
+          );
+          await jsm.streams.add({
+            name: streamCfg.name,
+            subjects: streamCfg.subjects,
+          });
+        } else {
+          throw err;
+        }
       }
     }
 
